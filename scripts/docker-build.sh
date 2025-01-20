@@ -4,4 +4,4 @@ docker buildx create --use
 timestamp=$(date +%Y%m%d.%H%M)
 specificVersionTag=mercurr/interval-server:$timestamp
 # Build the docker image + pushes it to registry
-docker buildx build --output=type=registry --platform=linux/amd64,linux/arm64 -t mercurr/interval-server:latest -t $specificVersionTag .
+docker buildx build --output=type=registry --platform=linux/arm64 -t mercurr/interval-server:latest -t $specificVersionTag .
