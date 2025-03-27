@@ -27,3 +27,5 @@ build-oss.sh
 
 release
 release.tar.gz
+
+.npmrc

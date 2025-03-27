@@ -3,12 +3,14 @@ import { defineConfig, HttpProxy, splitVendorChunkPlugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import nodeResolve from '@rollup/plugin-node-resolve'
 import postcss from './postcss.config'
-import checker from 'vite-plugin-checker'
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ command }) => {
-  const mdx = await import('@mdx-js/rollup').then(r => r.default)
-  const rehypeHighlight = await import('rehype-highlight').then(r => r.default)
+  const [mdx, rehypeHighlight, { default: checker }] = await Promise.all([
+    import('@mdx-js/rollup').then(r => r.default),
+    import('rehype-highlight').then(r => r.default),
+    import('vite-plugin-checker')
+  ])
 
   return {
     define: {

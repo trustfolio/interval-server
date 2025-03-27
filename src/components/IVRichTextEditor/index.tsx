@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Editor as CoreEditor } from '@tiptap/core'
+import { Editor as CoreEditor, mergeAttributes } from '@tiptap/core'
 import { useEditor, Editor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -7,6 +7,12 @@ import Link from '@tiptap/extension-link'
 import { Level } from '@tiptap/extension-heading'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
+import Mention from '@tiptap/extension-mention'
+import Youtube from '@tiptap/extension-youtube'
+import Table from '@tiptap/extension-table'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
+import TableRow from '@tiptap/extension-table-row'
 import classNames from 'classnames'
 
 import IVSelect from '~/components/IVSelect'
@@ -19,8 +25,9 @@ import RedoIcon from '~/icons/compiled/Redo'
 import UndoIcon from '~/icons/compiled/Undo'
 import ClearFormattingIcon from '~/icons/compiled/ClearFormatting'
 import ImageIcon from '~/icons/compiled/Image'
+import VideoIcon from '~/icons/compiled/Play'
 import { ShortcutMap, getShortcuts } from '~/utils/usePlatform'
-
+import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
 const CustomLink = Link.extend({
   addKeyboardShortcuts() {
     return {
@@ -76,8 +83,8 @@ function clearFormattingButtonHandler(editor: CoreEditor) {
 
 export interface IVRichTextEditorProps {
   id?: string
-  defaultValue?: string
-  onChange: (content: string, textContent: string) => void
+  defaultValue?: { html: string; json?: any }
+  onChange: (content: { html: string; json?: any }, textContent: string) => void
   onBlur?: () => void
   disabled?: boolean
   placeholder?: string
@@ -112,13 +119,41 @@ export default function IVRichTextEditor({
         placeholder,
       }),
       Image,
+      Mention.configure({
+        deleteTriggerWithBackspace: true,
+        renderHTML({ options, node }) {
+          console.log('options', options)
+          console.log('node', node)
+          return [
+            'a',
+            mergeAttributes({ href: '/profile/1' }, options.HTMLAttributes),
+            `${options.suggestion.char}${node.attrs.label ?? node.attrs.id}`,
+          ]
+        },
+        suggestion: mentionSuggestionOptions,
+      }),
+      Youtube.configure({
+        controls: false,
+        nocookie: true,
+        modestBranding: true,
+      }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     onUpdate({ editor }) {
+      console.log('json', editor.getJSON())
       // This might be wastefully expensive to do both always but it's a nice
       // way for the parent to ensure that text is entered and not just empty
       // blocks.
 
-      onChange(editor.getHTML(), editor.getText())
+      onChange(
+        { html: editor.getHTML(), json: editor.getJSON() },
+        editor.getText()
+      )
     },
     editorProps: {
       attributes: autoFocus ? { 'data-autofocus-target': 'true' } : undefined,
@@ -192,6 +227,21 @@ function MenuBar({
 
   if (!editor) return null
 
+  const addYoutubeVideo = () => {
+    const url = prompt('Enter YouTube URL')
+    const [width, height] = prompt(
+      'Enter width and height: (e.g. 640x480)'
+    )?.split('x') || ['640', '480']
+
+    if (url) {
+      editor.commands.setYoutubeVideo({
+        src: url,
+        width: Math.max(320, parseInt(width, 10)) || 640,
+        height: Math.max(180, parseInt(height, 10)) || 480,
+      })
+    }
+  }
+
   return (
     <div
       className="border-b border-solid border-gray-300 flex items-start gap-x-2"
@@ -220,14 +270,14 @@ function MenuBar({
                 pc: 'Control+Alt+0',
               },
             },
-            {
-              label: 'Heading 1',
-              value: '1',
-              shortcuts: {
-                mac: 'Meta+Alt+1',
-                pc: 'Control+Alt+1',
-              },
-            },
+            // {
+            //   label: 'Heading 1',
+            //   value: '1',
+            //   shortcuts: {
+            //     mac: 'Meta+Alt+1',
+            //     pc: 'Control+Alt+1',
+            //   },
+            // },
             {
               label: 'Heading 2',
               value: '2',
@@ -242,6 +292,14 @@ function MenuBar({
               shortcuts: {
                 mac: 'Meta+Alt+3',
                 pc: 'Control+Alt+3',
+              },
+            },
+            {
+              label: 'Heading 4',
+              value: '4',
+              shortcuts: {
+                mac: 'Meta+Alt+4',
+                pc: 'Control+Alt+4',
               },
             },
           ]}
@@ -430,6 +488,21 @@ function MenuBar({
               shortcuts: {
                 mac: 'Meta+Shift+I',
                 pc: 'Control+Shift+I',
+              },
+            },
+          ]}
+        />
+
+        <MenuBarButtonGroup
+          buttons={[
+            {
+              title: 'Add video...',
+              label: <VideoIcon className="w-4 h-4" />,
+              disabled: disabled,
+              onClick: () => addYoutubeVideo(),
+              shortcuts: {
+                mac: 'Meta+Shift+V',
+                pc: 'Control+Shift+V',
               },
             },
           ]}

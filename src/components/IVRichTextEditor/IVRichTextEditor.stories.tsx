@@ -13,7 +13,7 @@ const Template: StoryFn<typeof IVRichTextEditor> = args => (
 
 export const Default = Template.bind({})
 Default.args = {
-  defaultValue: '<h2>Hello!</h2>',
+  defaultValue: { html: '<h2>Hello!</h2>' },
   onChange: () => {
     /* */
   },

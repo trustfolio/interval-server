@@ -1,0 +1,24 @@
+.suggestion-popover {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.suggestion-list {
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.suggestion-item {
+  padding: 6px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.suggestion-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.suggestion-item.selected {
+  background-color: rgba(0, 0, 0, 0.08);
+}

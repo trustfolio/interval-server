@@ -4,6 +4,8 @@ import { MONTH_NAMES } from '~/utils/date'
 import Flatpickr from 'react-flatpickr'
 import { DateTimePickerState, isEmptyValue } from './datePickerUtils'
 
+const FlatpickrComponent = Flatpickr as any
+
 export default function CalendarPopover({
   popover,
   onChange,
@@ -104,7 +106,7 @@ export default function CalendarPopover({
             onChange={onMonthNav}
           />
         )}
-        <Flatpickr
+        <FlatpickrComponent
           ref={fp}
           options={{
             defaultDate: value ?? undefined,
@@ -144,7 +146,7 @@ function CalendarHeader({
   state,
   onChange,
 }: {
-  fp: Flatpickr
+  fp: any
   state: { month?: number; year?: number }
   onChange: (state: CalendarNavState) => void
 }) {
