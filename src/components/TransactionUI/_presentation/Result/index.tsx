@@ -4,7 +4,7 @@ import { JSONValue } from 'superjson/dist/types'
 import {
   JSONPrimitive,
   ParsedActionReturnData,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import { TransactionResultStatus } from '@prisma/client'
 import KeyValueTable from '~/components/KeyValueTable'
 import RenderValue from '~/components/RenderValue'

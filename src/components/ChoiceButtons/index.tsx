@@ -1,6 +1,9 @@
 import IVButton from '~/components/IVButton'
 import ErrorMessage from '~/components/ErrorMessage'
-import { ButtonConfig, ChoiceButtonConfig } from '@interval/sdk/dist/types'
+import {
+  ButtonConfig,
+  ChoiceButtonConfig,
+} from '@trustfolio/interval-sdk/dist/types'
 
 type SubmittedChoice = {
   value: string

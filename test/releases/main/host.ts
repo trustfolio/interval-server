@@ -1,9 +1,15 @@
 import http from 'http'
 import path from 'path'
 import fs from 'fs'
-import Interval, { ctx, io, Action, Page, Layout } from '@interval/sdk/dist'
-import ExperimentalInterval from '@interval/sdk/dist/experimental'
-import IntervalClient from '@interval/sdk/dist/classes/IntervalClient'
+import Interval, {
+  ctx,
+  io,
+  Action,
+  Page,
+  Layout,
+} from '@trustfolio/interval-sdk/dist'
+import ExperimentalInterval from '@trustfolio/interval-sdk/dist/experimental'
+import IntervalClient from '@trustfolio/interval-sdk/dist/classes/IntervalClient'
 import { config, ENDPOINT_URL, sleep } from '../../_setup'
 import { generateS3Urls } from '../../utils/uploads'
 import {
@@ -16,7 +22,7 @@ import {
 import z from 'zod'
 import util from 'util'
 import * as db from '../../data/mockDb'
-import { EventualMetaItem } from '@interval/sdk/dist/components/displayMetadata'
+import { EventualMetaItem } from '@trustfolio/interval-sdk/dist/components/displayMetadata'
 
 const writeFile = util.promisify(fs.writeFile)
 const removeFile = util.promisify(fs.unlink)
@@ -24,7 +30,7 @@ const readFile = util.promisify(fs.readFile)
 
 /*
   Assuming the SDK is installed at: <PROJECT_DIRECTORY>/node_modules
-  The config file will be at: <PROJECT_DIRECTORY>/node_modules/@interval/sdk/dist/.interval.config.json
+  The config file will be at: <PROJECT_DIRECTORY>/node_modules/@trustfolio/interval-sdk/dist/.interval.config.json
 */
 const intervalConfigPath = path.join(__dirname, '.interval.config.json')
 

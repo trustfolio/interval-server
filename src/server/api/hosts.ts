@@ -1,6 +1,6 @@
 import express from 'express'
 import { z } from 'zod'
-import { DECLARE_HOST } from '@interval/sdk/dist/internalRpcSchema'
+import { DECLARE_HOST } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import { loginWithApiKey } from '../auth'
 import prisma from '../prisma'
 import { getPermissionsWarning, initializeActions } from '../utils/actions'

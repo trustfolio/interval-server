@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ioSchema } from '@interval/sdk/dist/ioSchema'
+import { ioSchema } from '@trustfolio/interval-sdk/dist/ioSchema'
 import {
   DashboardContext,
   DashboardContextValue,

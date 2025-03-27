@@ -5,7 +5,7 @@ import {
   HostInstance,
   Transaction,
 } from '@prisma/client'
-import { SerializableRecord } from '@interval/sdk/dist/ioSchema'
+import { SerializableRecord } from '@trustfolio/interval-sdk/dist/ioSchema'
 import prisma from '~/server/prisma'
 import sleep from './sleep'
 import { getDashboardPath, usageEnvironmentToMode } from '~/utils/actions'

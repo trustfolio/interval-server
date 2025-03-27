@@ -4,7 +4,7 @@ import {
   BasicLayoutSchema,
   LayoutError,
   MetaItemSchema,
-} from '@interval/sdk/dist/classes/Layout'
+} from '@trustfolio/interval-sdk/dist/classes/Layout'
 import superjson from '~/utils/superjson'
 import { unpackIOCall } from '~/utils/transactions'
 import PageHeading from '~/components/PageHeading'

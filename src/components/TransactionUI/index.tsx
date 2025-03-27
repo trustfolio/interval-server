@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, Suspense } from 'react'
-import { ioSchema } from '@interval/sdk/dist/ioSchema'
+import { ioSchema } from '@trustfolio/interval-sdk/dist/ioSchema'
 import InputSpreadsheet from './InputSpreadsheet/lazy'
 import { inferQueryOutput } from '~/utils/trpc'
 import useTransaction, { UI_STATE } from './useTransaction'

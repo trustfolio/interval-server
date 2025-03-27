@@ -6,8 +6,11 @@ import {
   T_IO_RESPONSE_KIND,
   T_IO_RETURNS,
   T_IO_STATE,
-} from '@interval/sdk/dist/ioSchema'
-import { ButtonConfig, ChoiceButtonConfig } from '@interval/sdk/dist/types'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
+import {
+  ButtonConfig,
+  ChoiceButtonConfig,
+} from '@trustfolio/interval-sdk/dist/types'
 import { ZodError } from 'zod'
 import { ComponentRendererProps } from '~/components/RenderIOCall/ComponentRenderer'
 import { IOComponentError } from '~/components/RenderIOCall/ComponentError'
@@ -25,10 +28,10 @@ export interface IORenderInstruction<IsMultiple extends boolean = false>
   isOptional: boolean
   isMultiple: IsMultiple
   multipleProps?: IsMultiple extends true
-  ? {
-    defaultValue?: T_IO_RETURNS<T_IO_METHOD_NAMES>[] | null
-  }
-  : never
+    ? {
+        defaultValue?: T_IO_RETURNS<T_IO_METHOD_NAMES>[] | null
+      }
+    : never
   error?: ZodError
 }
 
@@ -83,24 +86,24 @@ export type RCTResponderProps<
   disabled?: boolean
   submitAttempted: boolean
   value: IsMultiple extends true
-  ? T_IO_RETURNS<MethodName>[]
-  : T_IO_RETURNS<MethodName> | IOComponentError | undefined
+    ? T_IO_RETURNS<MethodName>[]
+    : T_IO_RETURNS<MethodName> | IOComponentError | undefined
   defaultValue?: IsMultiple extends true
-  ? T_IO_RETURNS<MethodName>[]
-  : T_IO_RETURNS<MethodName>
+    ? T_IO_RETURNS<MethodName>[]
+    : T_IO_RETURNS<MethodName>
   onStateChange: (newState: T_IO_STATE<MethodName>) => void
   setExtraLoadingMessage: (message: string) => void
   onUpdatePendingReturnValue: (
     returns:
       | (IsMultiple extends true
-        ? T_IO_RETURNS<MethodName>[]
-        : T_IO_RETURNS<MethodName>)
-      | Promise<
-        | (IsMultiple extends true
           ? T_IO_RETURNS<MethodName>[]
           : T_IO_RETURNS<MethodName>)
-        | undefined
-      >
+      | Promise<
+          | (IsMultiple extends true
+              ? T_IO_RETURNS<MethodName>[]
+              : T_IO_RETURNS<MethodName>)
+          | undefined
+        >
       | IOComponentError
       | undefined
   ) => void

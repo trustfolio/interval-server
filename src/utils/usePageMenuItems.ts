@@ -1,4 +1,4 @@
-import { InternalButtonItem } from '@interval/sdk/dist/types'
+import { InternalButtonItem } from '@trustfolio/interval-sdk/dist/types'
 import { IVButtonProps } from '~/components/IVButton'
 import useRenderContext from '~/components/RenderContext'
 import { getCurrentPath } from '~/utils/url'

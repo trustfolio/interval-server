@@ -1,5 +1,5 @@
 import { Page, expect } from '@playwright/test'
-import type { ParsedActionReturnData } from '@interval/sdk/dist/ioSchema'
+import type { ParsedActionReturnData } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { dateTimeFormatter } from '../../src/utils/formatters'
 import { dashboardUrl } from '../../test/_setup'
 

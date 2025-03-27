@@ -10,7 +10,7 @@ import {
   ImplementedComponents,
 } from '~/utils/componentNameMap'
 import ComponentError from './ComponentError'
-import { supportsMultiple } from '@interval/sdk/dist/ioSchema'
+import { supportsMultiple } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { ActionMode, ComponentContext } from '~/utils/types'
 
 export interface ComponentRendererProps {

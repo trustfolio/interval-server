@@ -1,7 +1,7 @@
 import useTable from '~/components/IVTable/useTable'
 import useDisplayTableState from '../DisplayTable/useDisplayTableState'
 import IVMediaGrid from '~/components/IVMediaGrid'
-import { GridItem } from '@interval/sdk/dist/ioSchema'
+import { GridItem } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { RCTResponderProps } from '~/components/RenderIOCall'
 import ComponentHelpText from '~/components/HelpText'
 

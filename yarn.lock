@@ -1955,18 +1955,6 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-2.0.3.tgz#4a2868d75d6d6963e423bcf90b7fd1be343409d3"
   integrity sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==
 
-"@interval/sdk@github:trustfolio/interval-sdk#main":
-  version "2.0.0"
-  resolved "https://codeload.github.com/trustfolio/interval-sdk/tar.gz/0a094e695aad547825a2a47a918fccce0d5e40f3"
-  dependencies:
-    "@brillout/import" "^0.2.2"
-    cross-fetch "^3.1.5"
-    evt "^2.4.10"
-    superjson "^1.9.1"
-    uuid "^9.0.0"
-    ws "^8.4.1"
-    zod "^3.13.3"
-
 "@isaacs/cliui@^8.0.2":
   version "8.0.2"
   resolved "https://registry.yarnpkg.com/@isaacs/cliui/-/cliui-8.0.2.tgz#b37667b7bc181c168782259bab42474fbf52b550"
@@ -4680,6 +4668,19 @@
   version "9.27.4"
   resolved "https://registry.yarnpkg.com/@trpc/server/-/server-9.27.4.tgz#6a3d8df1168a46a2b3e6566ba2c48b2aa2f532c1"
   integrity sha512-yw0omUrxGp8+gEAuieZFeXB4bCqFvmyCDL3GOBv+Q6+cK0m5824ViHZKPgK5DYG1ijN/lbi1hP3UVKywPN7rbQ==
+
+"@trustfolio/interval-sdk@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@trustfolio/interval-sdk/-/interval-sdk-1.0.0.tgz#5c1a8babed8e120c00ffa1602214fd21f9a12932"
+  integrity sha512-UsBG56tGgruq7xsAxEPwVocjs+XvizSEm02lqm0U1dpog32KSifFL5F0ro2YIkT91juBDPsKe5LOXx5lwo9zQg==
+  dependencies:
+    "@brillout/import" "^0.2.2"
+    cross-fetch "^3.1.5"
+    evt "^2.4.10"
+    superjson "^1.9.1"
+    uuid "^9.0.0"
+    ws "^8.4.1"
+    zod "^3.13.3"
 
 "@trysound/sax@0.2.0":
   version "0.2.0"

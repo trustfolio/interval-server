@@ -2,7 +2,7 @@ import { Prisma, User, UserAccessPermission } from '@prisma/client'
 import type {
   StartTransactionUser,
   CtxUserRole,
-} from '@interval/sdk/dist/internalRpcSchema'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import { getPrimaryRole } from '~/utils/permissions'
 
 export function displayName(

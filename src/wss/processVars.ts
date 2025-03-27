@@ -1,12 +1,12 @@
-import type ISocket from '@interval/sdk/dist/classes/ISocket'
-import type { DuplexRPCClient } from '@interval/sdk/dist/classes/DuplexRPCClient'
+import type ISocket from '@trustfolio/interval-sdk/dist/classes/ISocket'
+import type { DuplexRPCClient } from '@trustfolio/interval-sdk/dist/classes/DuplexRPCClient'
 import type {
   ClientSchema,
   HostSchema,
   WSServerSchema,
   LoadingState,
-} from '@interval/sdk/dist/internalRpcSchema'
-import type { LinkProps } from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
+import type { LinkProps } from '@trustfolio/interval-sdk/dist/ioSchema'
 import type {
   Organization,
   UsageEnvironment,

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { UseTableResult } from '../IVTable/useTable'
 import MediaGridItem from './MediaGridItem'
-import { GridItem } from '@interval/sdk/dist/ioSchema'
+import { GridItem } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { TableControls } from '../IVTable/DesktopTable'
 import useWindowSize from '~/utils/useWindowSize'
 

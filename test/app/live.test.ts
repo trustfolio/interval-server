@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import Interval, { IntervalActionHandler } from '@interval/sdk/dist'
+import Interval, { IntervalActionHandler } from '@trustfolio/interval-sdk/dist'
 import { prisma, config, dashboardUrl, isAppendUIEnabled } from '../_setup'
 import { test } from '../_fixtures'
 

@@ -2,7 +2,7 @@ import {
   ioSchema,
   T_IO_METHOD_NAMES,
   T_IO_RETURNS,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import { useEffect, useState } from 'react'
 import { IOComponentError } from '~/components/RenderIOCall/ComponentError'
 

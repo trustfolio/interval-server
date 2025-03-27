@@ -1,4 +1,4 @@
-import { T_IO_STATE } from '@interval/sdk/dist/ioSchema'
+import { T_IO_STATE } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { useMemo, useRef, useEffect } from 'react'
 import { UseTableResult } from '~/components/IVTable/useTable'
 import { RCTResponderProps } from '~/components/RenderIOCall'

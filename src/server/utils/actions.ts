@@ -3,7 +3,7 @@ import {
   AccessControlDefinition,
   ActionDefinition,
   PageDefinition,
-} from '@interval/sdk/dist/internalRpcSchema'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import {
   Action,
   ActionGroup,

@@ -1,6 +1,6 @@
 import express from 'express'
 import { z } from 'zod'
-import { NOTIFY } from '@interval/sdk/dist/internalRpcSchema'
+import { NOTIFY } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import { loginWithApiKey } from '../auth'
 import notify, { NotificationTransaction } from '../utils/notify'
 import prisma from '../prisma'

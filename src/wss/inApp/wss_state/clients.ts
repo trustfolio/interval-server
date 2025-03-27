@@ -1,4 +1,4 @@
-import { io, ctx, Action, Page, Layout } from '@interval/sdk'
+import { io, ctx, Action, Page, Layout } from '@trustfolio/interval-sdk'
 import {
   blockedWsIds,
   connectedClients,

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { MetaItemSchema } from '@interval/sdk/dist/classes/Layout'
+import { MetaItemSchema } from '@trustfolio/interval-sdk/dist/classes/Layout'
 import RenderValue from '../RenderValue'
 import { IVTableCellValueObject } from '~/components/IVTable/useTable'
 import useRenderContext from '../RenderContext'

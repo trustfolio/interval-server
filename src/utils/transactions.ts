@@ -2,14 +2,14 @@ import {
   ButtonConfig,
   ChoiceButtonConfig,
   NotificationDeliveryInstruction,
-} from '@interval/sdk/dist/types'
+} from '@trustfolio/interval-sdk/dist/types'
 import {
   ioSchema,
   IO_RENDER,
   T_IO_RENDER,
   T_IO_METHOD_NAMES,
   T_IO_Schema,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import { logger } from '~/utils/logger'
 // IMPORTANT: This file cannot be imported from the server
 // because of this import ⬇

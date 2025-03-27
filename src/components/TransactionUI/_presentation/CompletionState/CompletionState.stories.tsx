@@ -6,9 +6,9 @@ import {
   mockAction,
   mockActionMetadata,
 } from '~/utils/mockData'
-import { ParsedActionReturnData } from '@interval/sdk/dist/ioSchema'
+import { ParsedActionReturnData } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { TransactionResultStatus } from '@prisma/client'
-import * as pkg from '@interval/sdk/package.json'
+import * as pkg from '@trustfolio/interval-sdk/package.json'
 
 export default {
   title: 'TransactionUI/Presentation/CompletionState',

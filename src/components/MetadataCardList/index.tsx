@@ -1,4 +1,4 @@
-import { MetaItemSchema } from '@interval/sdk/dist/classes/Layout'
+import { MetaItemSchema } from '@trustfolio/interval-sdk/dist/classes/Layout'
 import classNames from 'classnames'
 import Skeleton from 'react-loading-skeleton'
 import IVConstraintsIndicator from '~/components/IVConstraintsIndicator'

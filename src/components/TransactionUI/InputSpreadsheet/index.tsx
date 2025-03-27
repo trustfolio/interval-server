@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { z, ZodError } from 'zod'
 import * as Papa from 'papaparse'
-import { extractColumns } from '@interval/sdk/dist/utils/spreadsheet'
+import { extractColumns } from '@trustfolio/interval-sdk/dist/utils/spreadsheet'
 import { RCTResponderProps } from '~/components/RenderIOCall'
 import { IOComponentError } from '~/components/RenderIOCall/ComponentError'
 import SpreadsheetEditor from './SpreadsheetEditor'

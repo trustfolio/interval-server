@@ -1,4 +1,4 @@
-import { extractColumns } from '@interval/sdk/dist/utils/spreadsheet'
+import { extractColumns } from '@trustfolio/interval-sdk/dist/utils/spreadsheet'
 import Papa from 'papaparse'
 import { z } from 'zod'
 import { OutputSchemaBase, RecordValue } from '.'

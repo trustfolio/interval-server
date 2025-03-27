@@ -2,18 +2,18 @@
 import { WebSocketServer } from 'ws'
 import prisma from '../server/prisma'
 import { getClientIp } from 'request-ip'
-import ISocket from '@interval/sdk/dist/classes/ISocket'
-import { DuplexRPCClient } from '@interval/sdk/dist/classes/DuplexRPCClient'
+import ISocket from '@trustfolio/interval-sdk/dist/classes/ISocket'
+import { DuplexRPCClient } from '@trustfolio/interval-sdk/dist/classes/DuplexRPCClient'
 import {
   clientSchema,
   hostSchema,
   wsServerSchema,
-} from '@interval/sdk/dist/internalRpcSchema'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import {
   T_IO_METHOD_NAMES,
   T_IO_RENDER,
   SerializableRecord,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import {
   Prisma,
   ApiKey,

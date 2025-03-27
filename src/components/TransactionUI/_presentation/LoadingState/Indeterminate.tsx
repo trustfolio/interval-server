@@ -1,4 +1,4 @@
-import { BackwardCompatibleLoadingState } from '@interval/sdk/dist/internalRpcSchema'
+import { BackwardCompatibleLoadingState } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import IVSpinner from '~/components/IVSpinner'
 
 export default function DisplayProgressIndeterminate(

@@ -4,7 +4,7 @@ import {
   SerializableRecord,
   IO_RENDER,
   T_IO_RESPONSE,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import superjson from '~/utils/superjson'
 import prisma from '~/server/prisma'
 import { isFlagEnabled } from '~/server/utils/featureFlags'
@@ -12,7 +12,7 @@ import { getOrgEnvSlug, PRODUCTION_ORG_ENV_SLUG } from '~/utils/environments'
 import { getStartTransactionUser, TransactionRunner } from '~/utils/user'
 import { getActionUrl } from '~/utils/actions'
 import { TransactionWithAction } from '~/utils/types'
-import type { ActionEnvironment } from '@interval/sdk/dist/internalRpcSchema'
+import type { ActionEnvironment } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import {
   connectedHosts,
   pendingIOCalls,

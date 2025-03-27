@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { getStartTransactionUser, TransactionRunner } from './user'
-import type { StartTransactionUser } from '@interval/sdk/dist/internalRpcSchema'
+import type { StartTransactionUser } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 
 export default function useStartTransactionUser(
   user: TransactionRunner | undefined | null

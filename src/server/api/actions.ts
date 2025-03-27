@@ -3,8 +3,8 @@ import { z } from 'zod'
 import {
   ENQUEUE_ACTION,
   DEQUEUE_ACTION,
-} from '@interval/sdk/dist/internalRpcSchema'
-import { serializeDates } from '@interval/sdk/dist/utils/deserialize'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
+import { serializeDates } from '@trustfolio/interval-sdk/dist/utils/deserialize'
 import { User } from '@prisma/client'
 import prisma from '../prisma'
 import { loginWithApiKey } from '../auth'

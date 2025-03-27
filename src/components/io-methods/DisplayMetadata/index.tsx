@@ -1,6 +1,6 @@
 import { RCTResponderProps } from '~/components/RenderIOCall'
 import classNames from 'classnames'
-import { T_IO_PROPS } from '@interval/sdk/dist/ioSchema'
+import { T_IO_PROPS } from '@trustfolio/interval-sdk/dist/ioSchema'
 import MetadataCardList from '~/components/MetadataCardList'
 import MetadataValue from '~/components/MetadataCardList/MetadataValue'
 

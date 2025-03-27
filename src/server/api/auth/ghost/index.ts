@@ -1,4 +1,4 @@
-import { CREATE_GHOST_MODE_ACCOUNT } from '@interval/sdk/dist/internalRpcSchema'
+import { CREATE_GHOST_MODE_ACCOUNT } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import { Prisma, ApiKey, Organization, User } from '@prisma/client'
 import { Request, Response, Router } from 'express'
 import { z } from 'zod'

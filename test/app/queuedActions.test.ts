@@ -1,4 +1,4 @@
-import Interval from '@interval/sdk/dist'
+import Interval from '@trustfolio/interval-sdk/dist'
 import { prisma, config, dashboardUrl, sleep } from '../_setup'
 import { test } from '../_fixtures'
 import { dateTimeFormatter } from '../../src/utils/formatters'

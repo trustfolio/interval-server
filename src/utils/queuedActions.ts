@@ -1,4 +1,4 @@
-import { DeserializableRecord } from '@interval/sdk/dist/ioSchema'
+import { DeserializableRecord } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { Prisma } from '@prisma/client'
 
 export function getQueuedActionParams(

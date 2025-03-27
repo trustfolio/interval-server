@@ -2,7 +2,7 @@ import {
   DateObject,
   TimeObject,
   DateTimeObject,
-} from '@interval/sdk/dist/ioSchema'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import { isValidDate } from '~/utils/date'
 
 export type IVDateTimeChangeValue = {

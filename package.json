@@ -40,12 +40,12 @@
     "test:dev": "nodemon --watch test --exec \"playwright test\" -e ts",
     "test:start": "NODE_ENV=test start-server-and-test start:proxy http://localhost:3000/health-check/app test",
     "test:start:all": "NODE_ENV=test start-server-and-test start:proxy http://localhost:3000/health-check/app test:all",
-    "postinstall": "yarn prisma generate && cd node_modules/@interval/sdk && yarn install && yarn build"
+    "postinstall": "yarn prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.109.0",
     "@aws-sdk/s3-request-presigner": "^3.109.0",
-    "@interval/sdk": "github:trustfolio/interval-sdk#main",
+    "@trustfolio/interval-sdk": "^1.0.0",
     "@prisma/client": "^5.3.0",
     "@prisma/generator-helper": "^5.3.0",
     "@trpc/client": "^9.16.0",

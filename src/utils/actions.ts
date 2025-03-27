@@ -1,4 +1,4 @@
-import type { SerializableRecord } from '@interval/sdk/dist/ioSchema'
+import type { SerializableRecord } from '@trustfolio/interval-sdk/dist/ioSchema'
 import type {
   ActionMode,
   ActionWithPossibleMetadata,

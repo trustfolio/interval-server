@@ -8,5 +8,5 @@ export const SLACK_OAUTH_SCOPES =
   'im:write,chat:write,channels:read,groups:read,users:read,users:read.email'
 export const CLIENT_ISOCKET_ID_SEARCH_PARAM_KEY = '__INTERVAL_CLIENT_ISOCKET_ID'
 
-export const NODE_SDK_NAME = '@interval/sdk'
+export const NODE_SDK_NAME = '@trustfolio/interval-sdk'
 export const PYTHON_SDK_NAME = 'interval-py'

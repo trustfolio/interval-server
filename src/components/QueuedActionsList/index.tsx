@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { RawActionReturnData } from '@interval/sdk/dist/ioSchema'
+import { RawActionReturnData } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { QueuedAction } from '@prisma/client'
 import relativeTime from '~/utils/date'
 import { dateTimeFormatter } from '~/utils/formatters'

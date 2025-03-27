@@ -13,9 +13,9 @@ import { z } from 'zod'
 import {
   ClientSchema,
   BackwardCompatibleLoadingState,
-} from '@interval/sdk/dist/internalRpcSchema'
-import { T_IO_RESPONSE } from '@interval/sdk/dist/ioSchema'
-import { DuplexRPCHandlers } from '@interval/sdk/dist/classes/DuplexRPCClient'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
+import { T_IO_RESPONSE } from '@trustfolio/interval-sdk/dist/ioSchema'
+import { DuplexRPCHandlers } from '@trustfolio/interval-sdk/dist/classes/DuplexRPCClient'
 import superjson from '~/utils/superjson'
 import { inferQueryOutput, trpc } from '~/utils/trpc'
 import { ActionMode } from '~/utils/types'

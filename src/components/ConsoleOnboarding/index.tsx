@@ -74,7 +74,7 @@ function InstallToExisting({ language }: { language: string }) {
       actionFileName = 'src/routes/hello_world.ts'
       mainCode = dedent(`
         import path from "path";
-        import { Interval } from "@interval/sdk";
+        import { Interval } from "@trustfolio/interval-sdk";
 
         const interval = new Interval({
           apiKey: "${key?.data?.key || ''}",
@@ -84,7 +84,7 @@ function InstallToExisting({ language }: { language: string }) {
         interval.listen();
       `)
       actionCode = dedent(`
-        import { Action, io } from "@interval/sdk";
+        import { Action, io } from "@trustfolio/interval-sdk";
 
         export default new Action(async () => {
           const name = await io.input.text("Your name");
@@ -97,7 +97,7 @@ function InstallToExisting({ language }: { language: string }) {
       actionFileName = 'src/routes/hello_world.js'
       mainCode = dedent(`
         const path = require("path");
-        const { Interval } = require("@interval/sdk");
+        const { Interval } = require("@trustfolio/interval-sdk");
 
         const interval = new Interval({
           apiKey: "${key?.data?.key || ''}",
@@ -107,7 +107,7 @@ function InstallToExisting({ language }: { language: string }) {
         interval.listen();
       `)
       actionCode = dedent(`
-        const { Action, io } = require("@interval/sdk");
+        const { Action, io } = require("@trustfolio/interval-sdk");
 
         module.exports = new Action(async () => {
           const name = await io.input.text("Your name");
@@ -159,7 +159,7 @@ function InstallToExisting({ language }: { language: string }) {
               code={
                 language === 'python'
                   ? `pip install interval-sdk`
-                  : `npm install @interval/sdk`
+                  : `npm install @trustfolio/interval-sdk`
               }
               language="bash"
               canDownload={false}

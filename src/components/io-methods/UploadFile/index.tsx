@@ -1,4 +1,4 @@
-import { T_IO_RETURNS } from '@interval/sdk/dist/ioSchema'
+import { T_IO_RETURNS } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import FileUploadButton, { UploadStep } from '~/components/FileUploadButton'
 import IVInputField from '~/components/IVInputField'

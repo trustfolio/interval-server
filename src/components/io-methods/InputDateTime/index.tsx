@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import { ioSchema } from '@interval/sdk/dist/ioSchema'
+import { ioSchema } from '@trustfolio/interval-sdk/dist/ioSchema'
 import { z } from 'zod'
 import IVDateTimePicker from '~/components/IVDateTimePicker'
 import { dateTimeFormatter } from '~/utils/formatters'
@@ -122,7 +122,7 @@ function getInitialState(
 
 function getReturnValue(
   value: IVDateTimeChangeValue | null
-): z.infer<typeof ioSchema['INPUT_DATETIME']['returns']> | null {
+): z.infer<(typeof ioSchema)['INPUT_DATETIME']['returns']> | null {
   if (!value) return null
 
   const { year, month, day, hour, minute, jsDate } = value

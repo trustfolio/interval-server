@@ -1,4 +1,8 @@
-import Interval, { io, Layout, Page as IntervalPage } from '@interval/sdk/dist'
+import Interval, {
+  io,
+  Layout,
+  Page as IntervalPage,
+} from '@trustfolio/interval-sdk/dist'
 import { expect } from '@playwright/test'
 import { encryptPassword } from '~/server/auth'
 import {

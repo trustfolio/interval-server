@@ -1,4 +1,7 @@
-import { T_IO_METHOD_NAMES, T_IO_RETURNS } from '@interval/sdk/dist/ioSchema'
+import {
+  T_IO_METHOD_NAMES,
+  T_IO_RETURNS,
+} from '@trustfolio/interval-sdk/dist/ioSchema'
 import { IOComponentError } from '~/components/RenderIOCall/ComponentError'
 import { useEffect, useState } from 'react'
 

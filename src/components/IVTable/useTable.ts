@@ -4,8 +4,8 @@ import {
   SerializableRecord,
   GridItem,
   HighlightColor,
-} from '@interval/sdk/dist/ioSchema'
-import { filterRows, sortRows } from '@interval/sdk/dist/utils/table'
+} from '@trustfolio/interval-sdk/dist/ioSchema'
+import { filterRows, sortRows } from '@trustfolio/interval-sdk/dist/utils/table'
 import usePrevious from '~/utils/usePrevious'
 import { DropdownMenuItemProps } from '~/components/DropdownMenu'
 

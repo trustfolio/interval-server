@@ -1,4 +1,4 @@
-import { BackwardCompatibleLoadingState } from '@interval/sdk/dist/internalRpcSchema'
+import { BackwardCompatibleLoadingState } from '@trustfolio/interval-sdk/dist/internalRpcSchema'
 import { getPercentComplete } from './Progress'
 import { useRef } from 'react'
 import useTransactionAutoScroll from '~/utils/useTransactionAutoScroll'

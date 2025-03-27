@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test'
-import Interval from '@interval/sdk/dist'
+import Interval from '@trustfolio/interval-sdk/dist'
 import { prisma, config, dashboardUrl } from '../_setup'
 import { test } from '../_fixtures'
 import { encryptPassword } from '~/server/auth'

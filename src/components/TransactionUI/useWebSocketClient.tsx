@@ -13,12 +13,12 @@ import {
   clientSchema,
   ClientSchema,
   WSServerSchema,
-} from '@interval/sdk/dist/internalRpcSchema'
-import ISocket from '@interval/sdk/dist/classes/ISocket'
+} from '@trustfolio/interval-sdk/dist/internalRpcSchema'
+import ISocket from '@trustfolio/interval-sdk/dist/classes/ISocket'
 import {
   DuplexRPCClient,
   DuplexRPCHandlers,
-} from '@interval/sdk/dist/classes/DuplexRPCClient'
+} from '@trustfolio/interval-sdk/dist/classes/DuplexRPCClient'
 import { useDashboardOptional } from '../DashboardContext'
 import usePrevious from '~/utils/usePrevious'
 import { Evt } from 'evt'

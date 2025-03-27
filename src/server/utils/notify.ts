@@ -22,7 +22,7 @@ import {
   OrganizationWithPrivate,
   TransactionWithPossibleMetadata,
 } from '~/utils/types'
-import type { NotificationDeliveryInstruction } from '@interval/sdk/dist/types'
+import type { NotificationDeliveryInstruction } from '@trustfolio/interval-sdk/dist/types'
 import { logger } from '~/server/utils/logger'
 import { makeApiCall } from './wss'
 

@@ -1,5 +1,5 @@
 import { UsageEnvironment } from '@prisma/client'
-export * from '@interval/sdk/dist/utils/deserialize'
+export * from '@trustfolio/interval-sdk/dist/utils/deserialize'
 
 export function getUsageEnvironment(
   env: string | undefined | null
