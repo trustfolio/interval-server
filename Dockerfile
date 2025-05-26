@@ -2,10 +2,16 @@ FROM node:18.18.0-alpine AS builder
 
 WORKDIR /app
 
+# Copy package files
 COPY package.json yarn.lock ./
 
+# Copy prisma schema first
+COPY prisma ./prisma/
+
+# Install dependencies and generate Prisma client
 RUN yarn install --frozen-lockfile
 
+# Copy the rest of the application
 COPY . .
 
 RUN yarn build
