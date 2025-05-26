@@ -23,6 +23,7 @@
     "pkg": "./scripts/pkg.sh",
     "pub": "./scripts/pub.sh",
     "start": "NODE_ENV=production ./dist/src/entry.js",
+    "dev": "NODE_ENV=development nodemon --watch src --exec \"yarn build && chmod +x ./dist/src/entry.js && yarn start start\" -e ts",
     "docker": "./scripts/docker-build.sh",
     "client:build": "vite build",
     "client:clean": "rm -r node_modules/.vite",
@@ -45,7 +46,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.109.0",
     "@aws-sdk/s3-request-presigner": "^3.109.0",
-    "@trustfolio/interval-sdk": "^1.0.0",
+    "@trustfolio/interval-sdk": "1.0.5",
     "@prisma/client": "^5.3.0",
     "@prisma/generator-helper": "^5.3.0",
     "@trpc/client": "^9.16.0",

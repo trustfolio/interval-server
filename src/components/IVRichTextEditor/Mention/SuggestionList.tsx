@@ -18,9 +18,23 @@ export type SuggestionListRef = {
 // https://github.com/ueberdosis/tiptap/blob/a27c35ac8f1afc9d51f235271814702bc72f1e01/packages/extension-mention/src/mention.ts#L73-L103.
 // TODO(Steven DeMartini): Use the Tiptap exported MentionNodeAttrs interface
 // once https://github.com/ueberdosis/tiptap/pull/4136 is merged.
-interface MentionNodeAttrs {
+export interface TfMentionNodeAttrs {
   id: string | null
   label?: string | null
+  url?: string | null
+  type:
+    | 'member'
+    | 'review'
+    | 'group'
+    | 'collection'
+    | 'user'
+    | 'reward'
+    | 'asset'
+    | 'quality'
+    | 'tag'
+    | 'article'
+    | 'leaderboard'
+    | 'buyer'
 }
 
 export type SuggestionListProps = SuggestionProps<MentionSuggestion>
@@ -39,8 +53,6 @@ const SuggestionList = forwardRef<SuggestionListRef, SuggestionListProps>(
 
       const suggestion = props.items[index]
 
-      console.log('suggestion', suggestion)
-
       // Set all of the attributes of our Mention node based on the suggestion
       // data. The fields of `suggestion` will depend on whatever data you
       // return from your `items` function in your "suggestion" options handler.
@@ -48,11 +60,13 @@ const SuggestionList = forwardRef<SuggestionListRef, SuggestionListProps>(
       // indicated via SuggestionProps<MentionSuggestion>). We are passing an
       // object of the `MentionNodeAttrs` shape when calling `command` (utilized
       // by the Mention extension to create a Mention Node).
-      const mentionItem: MentionNodeAttrs = {
+      const mentionItem: TfMentionNodeAttrs = {
         id: suggestion.id,
-        label: suggestion.mentionLabel,
+        label: suggestion.label,
+        type: suggestion.type,
+        url: suggestion.url,
       }
-      console.log('mentionItem', mentionItem)
+
       // There is currently a bug in the Tiptap SuggestionProps
       // type where if you specify the suggestion type (like
       // `SuggestionProps<MentionSuggestion>`), it will incorrectly require that
@@ -112,7 +126,14 @@ const SuggestionList = forwardRef<SuggestionListRef, SuggestionListProps>(
               }`}
               onClick={() => selectItem(index)}
             >
-              {item.mentionLabel}
+              <div className="suggestion-item-content">
+                <span>{item.label}</span>
+                <span
+                  className={`suggestion-badge suggestion-badge-${item.type}`}
+                >
+                  {item.type}
+                </span>
+              </div>
             </div>
           ))}
         </div>

@@ -2,10 +2,25 @@ import type { MentionOptions } from '@tiptap/extension-mention'
 import { ReactRenderer } from '@tiptap/react'
 import tippy, { type Instance as TippyInstance } from 'tippy.js'
 import SuggestionList, { type SuggestionListRef } from './SuggestionList'
+import fetch from 'cross-fetch'
 
 export type MentionSuggestion = {
   id: string
-  mentionLabel: string
+  label: string
+  url: string | null
+  type:
+    | 'member'
+    | 'review'
+    | 'group'
+    | 'collection'
+    | 'user'
+    | 'reward'
+    | 'asset'
+    | 'quality'
+    | 'tag'
+    | 'article'
+    | 'leaderboard'
+    | 'buyer'
 }
 
 /**
@@ -36,48 +51,97 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
   // of whatever sort you like (including potentially additional data beyond
   // just an ID and a label). It need not be async but is written that way for
   // the sake of example.
-  items: async ({ query }): Promise<MentionSuggestion[]> =>
-    Promise.resolve(
-      [
-        'Lea Thompson',
-        'Cyndi Lauper',
-        'Tom Cruise',
-        'Madonna',
-        'Jerry Hall',
-        'Joan Collins',
-        'Winona Ryder',
-        'Christina Applegate',
-        'Alyssa Milano',
-        'Molly Ringwald',
-        'Ally Sheedy',
-        'Debbie Harry',
-        'Olivia Newton-John',
-        'Elton John',
-        'Michael J. Fox',
-        'Axl Rose',
-        'Emilio Estevez',
-        'Ralph Macchio',
-        'Rob Lowe',
-        'Jennifer Grey',
-        'Mickey Rourke',
-        'John Cusack',
-        'Matthew Broderick',
-        'Justine Bateman',
-        'Lisa Bonet',
-        'Benicio Monserrate Rafael del Toro Sánchez',
+  items: async ({ query }): Promise<MentionSuggestion[]> => {
+    if (!query || query.length < 3) {
+      return []
+    }
+
+    try {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_HASURA_API_URL
+        }/api/rest/mentions/search?search=${query}`,
+        {
+          method: 'GET',
+          headers: {},
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch mentions')
+      }
+
+      const data = await response.json()
+
+      // Transform the nested response into a flat array
+      const flattenedResults = [
+        ...(data.search_members || []).map(
+          (item: { name: string; public_id: string; slug: string }) => ({
+            label: item.name,
+            id: item.public_id,
+            type: 'member',
+            url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${item.slug}`,
+          })
+        ),
+        ...(data.search_tags || []).map(
+          (item: {
+            label: { FR_FR: string }
+            public_id: string
+            slug: string
+            parent: {
+              slug: string
+            }
+          }) => ({
+            label: item.label.FR_FR || Object.values(item.label)[0],
+            id: item.public_id,
+            type: 'tag',
+            url: item.parent
+              ? `${import.meta.env.VITE_MARKETPLACE_URL}/membres/${
+                  item.parent.slug
+                }/${item.slug}`
+              : `${import.meta.env.VITE_MARKETPLACE_URL}/membres/services/${
+                  item.slug
+                }`,
+          })
+        ),
+        ...(data.search_organization_groups || []).map(
+          (item: { parent: { name: string }; public_id: string }) => ({
+            label: item.parent.name,
+            id: item.public_id,
+            type: 'buyer',
+            url: `${import.meta.env.VITE_MARKETPLACE_URL}/membres/clients/${
+              item.public_id
+            }`,
+          })
+        ),
+        ...(data.search_endorsements || []).map(
+          (item: {
+            contact: {
+              full_name: string
+              account: { name: string } | null
+            } | null
+            public_id: string
+            owner: { name: string; slug: string }
+            public_account: { name: string } | null
+          }) => ({
+            label: `[${item.owner.name}] ${item.contact?.full_name || '***'} @${
+              item.contact?.account?.name || item.public_account?.name || '***'
+            }`,
+            id: item.public_id,
+            type: 'review',
+            url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
+              item.owner.slug
+            }/reference/${item.public_id}`,
+          })
+        ),
       ]
-        // Typically we'd be getting this data from an API where we'd have a
-        // definitive "id" to use for each suggestion item, but for the sake of
-        // example, we'll just set the index within this hardcoded list as the
-        // ID of each item.
-        .map((name, index) => ({ mentionLabel: name, id: index.toString() }))
-        // Find matching entries based on what the user has typed so far (after
-        // the @ symbol)
-        .filter(item =>
-          item.mentionLabel.toLowerCase().startsWith(query.toLowerCase())
-        )
-        .slice(0, 5)
-    ),
+
+      return flattenedResults
+    } catch (error) {
+      console.error('Error fetching mentions:', error)
+      return []
+    }
+  },
 
   render: () => {
     let component: ReactRenderer<SuggestionListRef> | undefined

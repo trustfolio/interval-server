@@ -81,10 +81,26 @@ function clearFormattingButtonHandler(editor: CoreEditor) {
     .run()
 }
 
+function getAllNodesAttributesByType(doc: any, nodeType: string): Array<any> {
+  console.log('getAllNodesAttributesByType')
+  const result: Array<any> = []
+
+  doc.descendants(node => {
+    if (node.type.name === nodeType) {
+      result.push(node.attrs)
+    }
+  })
+
+  return result
+}
+
 export interface IVRichTextEditorProps {
   id?: string
-  defaultValue?: { html: string; json?: any }
-  onChange: (content: { html: string; json?: any }, textContent: string) => void
+  defaultValue?: { html: string; json?: any; mentions?: any[] }
+  onChange: (
+    content: { html: string; json?: any; mentions?: any[] },
+    textContent: string
+  ) => void
   onBlur?: () => void
   disabled?: boolean
   placeholder?: string
@@ -119,15 +135,40 @@ export default function IVRichTextEditor({
         placeholder,
       }),
       Image,
-      Mention.configure({
+      Mention.extend({
+        addAttributes() {
+          return {
+            type: {
+              default: '',
+            },
+            url: {
+              default: '',
+            },
+            label: {
+              default: '',
+            },
+            id: {
+              default: '',
+            },
+          }
+        },
+      }).configure({
         deleteTriggerWithBackspace: true,
+        HTMLAttributes: {
+          class: 'mention',
+        },
         renderHTML({ options, node }) {
-          console.log('options', options)
-          console.log('node', node)
           return [
             'a',
-            mergeAttributes({ href: '/profile/1' }, options.HTMLAttributes),
-            `${options.suggestion.char}${node.attrs.label ?? node.attrs.id}`,
+            mergeAttributes(
+              {
+                href: node.attrs.url,
+                target: '_blank',
+                class: node.attrs.type,
+              },
+              options.HTMLAttributes
+            ),
+            `${node.attrs.label ?? node.attrs.id}`,
           ]
         },
         suggestion: mentionSuggestionOptions,
@@ -145,13 +186,16 @@ export default function IVRichTextEditor({
       TableCell,
     ],
     onUpdate({ editor }) {
-      console.log('json', editor.getJSON())
       // This might be wastefully expensive to do both always but it's a nice
       // way for the parent to ensure that text is entered and not just empty
       // blocks.
 
       onChange(
-        { html: editor.getHTML(), json: editor.getJSON() },
+        {
+          html: editor.getHTML(),
+          json: editor.getJSON(),
+          mentions: getAllNodesAttributesByType(editor.state.doc, 'mention'),
+        },
         editor.getText()
       )
     },

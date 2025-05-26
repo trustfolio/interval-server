@@ -17,7 +17,7 @@ export const trpc = createReactQueryHooks<AppRouter>()
 export const clientConfig = {
   url: '/api/trpc',
   transformer,
-  fetch,
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init),
   headers() {
     return {
       // This is the ID for the current organization, set by DashboardContext
