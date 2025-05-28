@@ -123,7 +123,7 @@ export default function IVRichTextEditor({
   hasError,
 }: IVRichTextEditorProps) {
   const editor = useEditor({
-    content: defaultValue,
+    content: defaultValue?.json || defaultValue?.html,
     editable: !disabled,
     extensions: [
       StarterKit,
@@ -156,6 +156,7 @@ export default function IVRichTextEditor({
         deleteTriggerWithBackspace: true,
         HTMLAttributes: {
           class: 'mention',
+          target: '_blank',
         },
         renderHTML({ options, node }) {
           return [
@@ -163,8 +164,11 @@ export default function IVRichTextEditor({
             mergeAttributes(
               {
                 href: node.attrs.url,
-                target: '_blank',
-                class: node.attrs.type,
+                class: `mention-${node.attrs.type}`,
+                'data-mention-type': node.attrs.type,
+                'data-mention-id': node.attrs.id,
+                'data-mention-label': node.attrs.label,
+                'data-mention-url': node.attrs.url,
               },
               options.HTMLAttributes
             ),

@@ -4677,10 +4677,10 @@
   resolved "https://registry.yarnpkg.com/@trpc/server/-/server-9.27.4.tgz#6a3d8df1168a46a2b3e6566ba2c48b2aa2f532c1"
   integrity sha512-yw0omUrxGp8+gEAuieZFeXB4bCqFvmyCDL3GOBv+Q6+cK0m5824ViHZKPgK5DYG1ijN/lbi1hP3UVKywPN7rbQ==
 
-"@trustfolio/interval-sdk@1.0.5":
-  version "1.0.5"
-  resolved "https://registry.yarnpkg.com/@trustfolio/interval-sdk/-/interval-sdk-1.0.5.tgz#3f2bae83735ce7023fa7b1316db94c3588c237eb"
-  integrity sha512-Op3MiKwR+aw3kFDLmDV/ymZtQL1VFjwNx7iwdoUUTV6jyYpM+DUXrYhFryWzL1mC8Yqh/K0M7qj5/mecd6p1Dg==
+"@trustfolio/interval-sdk@1.0.6":
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/@trustfolio/interval-sdk/-/interval-sdk-1.0.6.tgz#65215cf0c94f98194cffcd29e0ddf33ccffd3ce7"
+  integrity sha512-Y7apQsNIsduzLr2V9lHHqfshyK1G8IOSB0luSWruxK+XBpaVXaavgC5ZhzkcSiUH5JTooc7LTon5rtp6OtsR6g==
   dependencies:
     "@brillout/import" "^0.2.2"
     cross-fetch "^3.1.5"

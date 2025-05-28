@@ -46,13 +46,215 @@ const DOM_RECT_FALLBACK: DOMRect = {
   },
 }
 
+const parseTrustfolioUrl = async (
+  url: string
+): Promise<MentionSuggestion | null> => {
+  try {
+    const urlObj = new URL(url)
+    if (!urlObj.hostname.includes('trustfolio.co')) {
+      return null
+    }
+
+    const pathParts = urlObj.pathname.split('/').filter(Boolean)
+
+    //Article
+    if (pathParts[0] === 'articles' && pathParts[1]) {
+      const slug = pathParts[1]
+
+      if (!slug) {
+        return null
+      }
+
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_HASURA_API_URL
+        }/api/rest/mentions/article?slug=${slug}`,
+        {
+          method: 'GET',
+          headers: {},
+        }
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      const articleData = await response.json()
+
+      const article = articleData.marketplace_pages?.[0]
+
+      if (!article) {
+        return null
+      }
+
+      return {
+        label: article.title,
+        id: article.public_id,
+        type: 'article',
+        url: url,
+      }
+    }
+
+    // Member profile
+    if (pathParts[0] === 'profil' && pathParts[1]) {
+      const slug = pathParts[1]
+
+      if (!slug) {
+        return null
+      }
+
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_HASURA_API_URL
+        }/api/rest/mentions/member?slug=${slug}`,
+        {
+          method: 'GET',
+          headers: {},
+        }
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      const memberData = await response.json()
+
+      const member = memberData.members?.[0]
+
+      if (!member) {
+        return null
+      }
+
+      return {
+        label: member.name,
+        id: member.public_id,
+        type: 'member',
+        url: url,
+      }
+    }
+
+    // Tags
+    if (pathParts[0] === 'membres') {
+      const slug = pathParts[2]
+
+      if (!slug) {
+        return null
+      }
+
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_HASURA_API_URL
+        }/api/rest/mentions/tag?slug=${slug}`,
+        {
+          method: 'GET',
+          headers: {},
+        }
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      const tagData = await response.json()
+
+      const tag = tagData.tags?.[0]
+
+      if (!tag) {
+        return null
+      }
+
+      return {
+        label: tag.label,
+        id: tag.public_id,
+        type: 'tag',
+        url: url,
+      }
+    }
+
+    // Buyers
+    // if (
+    //   pathParts[0] === 'membres' &&
+    //   pathParts[1] === 'clients' &&
+    //   pathParts[2]
+    // ) {
+    //   return {
+    //     label: pathParts[2], // We'll need to fetch the actual name later
+    //     id: pathParts[2],
+    //     type: 'buyer',
+    //     url: url,
+    //   }
+    // }
+
+    // Reviews
+    if (
+      pathParts[0] === 'profil' &&
+      pathParts[1] &&
+      pathParts[2] === 'reference' &&
+      pathParts[3]
+    ) {
+      const id = pathParts[3]
+
+      if (!id) {
+        return null
+      }
+
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_HASURA_API_URL
+        }/api/rest/mentions/review?id=${id}`,
+        {
+          method: 'GET',
+          headers: {},
+        }
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      const reviewData = await response.json()
+
+      const review = reviewData.endorsements?.[0]
+
+      if (!review) {
+        return null
+      }
+
+      const label = `[${review.owner.name}] ${
+        review.contact?.full_name || '***'
+      } @${
+        review.contact?.account?.name || review.public_account?.name || '***'
+      }`
+
+      return {
+        label: label,
+        id: review.public_id,
+        type: 'review',
+        url: url,
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error parsing URL:', error)
+    return null
+  }
+}
+
 export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
-  // Replace this `items` code with a call to your API that returns suggestions
-  // of whatever sort you like (including potentially additional data beyond
-  // just an ID and a label). It need not be async but is written that way for
-  // the sake of example.
   items: async ({ query }): Promise<MentionSuggestion[]> => {
-    if (!query || query.length < 3) {
+    if (!query) {
+      return []
+    }
+
+    // Try to parse as URL first
+    const urlMention = await parseTrustfolioUrl(query)
+    if (urlMention) {
+      return [urlMention]
+    }
+
+    // If not a URL or parsing failed, proceed with API search
+    if (query.length < 3) {
       return []
     }
 

@@ -183,7 +183,10 @@ export function RenderIOCall(props: RenderIOCallProps) {
 
   const [returnValues, setReturnValues] = useState<
     (ReturnResponseValue | IOComponentError | undefined)[]
-  >(() => initialValues)
+  >(
+    () =>
+      initialValues as (ReturnResponseValue | IOComponentError | undefined)[]
+  )
 
   const isTouched = useMemo(
     () => returnValues.some((rv, i) => rv !== initialValues[i]),

@@ -15,6 +15,12 @@ export const Default = Template.bind({})
 Default.args = {
   defaultValue: {
     html: '<h2>Hello!</h2>',
+    json: {
+      type: 'doc',
+      content: [
+        { type: 'heading', content: [{ type: 'text', text: 'Hello!' }] },
+      ],
+    },
   },
   onChange: () => {
     /* */

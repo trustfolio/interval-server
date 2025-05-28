@@ -35,52 +35,52 @@
     padding: 0.1rem 0.3rem;
   }
 
-  .member {
+  .mention-member {
     background-color: #dbeafe;
     color: #1e40af;
   }
 
-  .review {
+  .mention-review {
     background-color: #dcfce7;
     color: #166534;
   }
 
-  .group {
+  .mention-group {
     background-color: #fef3c7;
     color: #92400e;
   }
 
-  .reward {
+  .mention-reward {
     background-color: #fce7f3;
     color: #831843;
   }
 
-  .quality {
+  .mention-quality {
     background-color: #e0e7ff;
     color: #3730a3;
   }
 
-  .tag {
+  .mention-tag {
     background-color: #f3e8fd;
     color: #6b21a8;
   }
 
-  .article {
+  .mention-article {
     background-color: #ecfccb;
     color: #365314;
   }
 
-  .leaderboard {
+  .mention-leaderboard {
     background-color: #ecfccb;
     color: #365314;
   }
 
-  .buyer {
+  .mention-buyer {
     background-color: #fef9c3;
     color: #854d0e;
   }
 
-  .collection {
+  .mention-collection {
     background-color: #f1f5f9;
     color: #0f172a;
   }
