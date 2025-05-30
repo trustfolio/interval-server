@@ -55,6 +55,8 @@ const parseTrustfolioUrl = async (
       return null
     }
 
+    console.log('urlObj', urlObj)
+
     const pathParts = urlObj.pathname.split('/').filter(Boolean)
 
     //Article
@@ -247,102 +249,113 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
       return []
     }
 
-    // Try to parse as URL first
-    const urlMention = await parseTrustfolioUrl(query)
-    if (urlMention) {
-      return [urlMention]
-    }
-
     // If not a URL or parsing failed, proceed with API search
     if (query.length < 3) {
       return []
     }
 
-    try {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_HASURA_API_URL
-        }/api/rest/mentions/search?search=${query}`,
-        {
-          method: 'GET',
-          headers: {},
-        }
-      )
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch mentions')
+    if (query.startsWith('https://')) {
+      // Try to parse as URL first
+      const urlMention = await parseTrustfolioUrl(query)
+      if (urlMention) {
+        return [urlMention]
       }
-
-      const data = await response.json()
-
-      // Transform the nested response into a flat array
-      const flattenedResults = [
-        ...(data.search_members || []).map(
-          (item: { name: string; public_id: string; slug: string }) => ({
-            label: item.name,
-            id: item.public_id,
-            type: 'member',
-            url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${item.slug}`,
-          })
-        ),
-        ...(data.search_tags || []).map(
-          (item: {
-            label: { FR_FR: string }
-            public_id: string
-            slug: string
-            parent: {
-              slug: string
-            }
-          }) => ({
-            label: item.label.FR_FR || Object.values(item.label)[0],
-            id: item.public_id,
-            type: 'tag',
-            url: item.parent
-              ? `${import.meta.env.VITE_MARKETPLACE_URL}/membres/${
-                  item.parent.slug
-                }/${item.slug}`
-              : `${import.meta.env.VITE_MARKETPLACE_URL}/membres/services/${
-                  item.slug
-                }`,
-          })
-        ),
-        ...(data.search_organization_groups || []).map(
-          (item: { parent: { name: string }; public_id: string }) => ({
-            label: item.parent.name,
-            id: item.public_id,
-            type: 'buyer',
-            url: `${import.meta.env.VITE_MARKETPLACE_URL}/membres/clients/${
-              item.public_id
-            }`,
-          })
-        ),
-        ...(data.search_endorsements || []).map(
-          (item: {
-            contact: {
-              full_name: string
-              account: { name: string } | null
-            } | null
-            public_id: string
-            owner: { name: string; slug: string }
-            public_account: { name: string } | null
-          }) => ({
-            label: `[${item.owner.name}] ${item.contact?.full_name || '***'} @${
-              item.contact?.account?.name || item.public_account?.name || '***'
-            }`,
-            id: item.public_id,
-            type: 'review',
-            url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
-              item.owner.slug
-            }/reference/${item.public_id}`,
-          })
-        ),
-      ]
-
-      return flattenedResults
-    } catch (error) {
-      console.error('Error fetching mentions:', error)
       return []
+    } else {
+      try {
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_HASURA_API_URL
+          }/api/rest/mentions/search?search=${query}`,
+          {
+            method: 'GET',
+            headers: {},
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch mentions')
+        }
+
+        const data = await response.json()
+
+        // Transform the nested response into a flat array
+        const flattenedResults = [
+          ...(data.search_members || []).map(
+            (item: { name: string; public_id: string; slug: string }) => ({
+              label: item.name,
+              id: item.public_id,
+              type: 'member',
+              url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
+                item.slug
+              }`,
+            })
+          ),
+          ...(data.search_tags || []).map(
+            (item: {
+              label: { FR_FR: string }
+              public_id: string
+              slug: string
+              parent: {
+                slug: string
+              }
+            }) => ({
+              label: item.label.FR_FR || Object.values(item.label)[0],
+              id: item.public_id,
+              type: 'tag',
+              url: item.parent
+                ? `${import.meta.env.VITE_MARKETPLACE_URL}/membres/${
+                    item.parent.slug
+                  }/${item.slug}`
+                : `${import.meta.env.VITE_MARKETPLACE_URL}/membres/services/${
+                    item.slug
+                  }`,
+            })
+          ),
+          ...(data.search_organization_groups || []).map(
+            (item: { parent: { name: string }; public_id: string }) => ({
+              label: item.parent.name,
+              id: item.public_id,
+              type: 'buyer',
+              url: `${import.meta.env.VITE_MARKETPLACE_URL}/membres/clients/${
+                item.public_id
+              }`,
+            })
+          ),
+          ...(data.search_endorsements || []).map(
+            (item: {
+              contact: {
+                full_name: string
+                account: { name: string } | null
+              } | null
+              public_id: string
+              owner: { name: string; slug: string }
+              public_account: { name: string } | null
+            }) => ({
+              label: `[${item.owner.name}] ${
+                item.contact?.full_name || '***'
+              } @${
+                item.contact?.account?.name ||
+                item.public_account?.name ||
+                '***'
+              }`,
+              id: item.public_id,
+              type: 'review',
+              url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
+                item.owner.slug
+              }/reference/${item.public_id}`,
+            })
+          ),
+        ]
+
+        return flattenedResults
+      } catch (error) {
+        console.error('Error fetching mentions:', error)
+        return []
+      }
     }
+
+    return []
   },
 
   render: () => {
