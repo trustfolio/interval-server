@@ -82,7 +82,7 @@ function clearFormattingButtonHandler(editor: CoreEditor) {
 }
 
 function getAllNodesAttributesByType(doc: any, nodeType: string): Array<any> {
-  console.log('getAllNodesAttributesByType')
+  // console.log('getAllNodesAttributesByType')
   const result: Array<any> = []
 
   doc.descendants(node => {

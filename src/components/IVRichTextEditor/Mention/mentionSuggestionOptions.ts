@@ -4,6 +4,11 @@ import tippy, { type Instance as TippyInstance } from 'tippy.js'
 import SuggestionList, { type SuggestionListRef } from './SuggestionList'
 import fetch from 'cross-fetch'
 
+const HASURA_API_URL =
+  import.meta.env.VITE_HASURA_API_URL || 'http://hasura-service:8080'
+const MARKETPLACE_URL =
+  import.meta.env.VITE_MARKETPLACE_URL || 'https://trustfolio.co'
+
 export type MentionSuggestion = {
   id: string
   label: string
@@ -68,9 +73,7 @@ const parseTrustfolioUrl = async (
       }
 
       const response = await fetch(
-        `${
-          import.meta.env.VITE_HASURA_API_URL
-        }/api/rest/mentions/article?slug=${slug}`,
+        `${HASURA_API_URL}/api/rest/mentions/article?slug=${slug}`,
         {
           method: 'GET',
           headers: {},
@@ -106,9 +109,7 @@ const parseTrustfolioUrl = async (
       }
 
       const response = await fetch(
-        `${
-          import.meta.env.VITE_HASURA_API_URL
-        }/api/rest/mentions/member?slug=${slug}`,
+        `${HASURA_API_URL}/api/rest/mentions/member?slug=${slug}`,
         {
           method: 'GET',
           headers: {},
@@ -144,9 +145,7 @@ const parseTrustfolioUrl = async (
       }
 
       const response = await fetch(
-        `${
-          import.meta.env.VITE_HASURA_API_URL
-        }/api/rest/mentions/tag?slug=${slug}`,
+        `${HASURA_API_URL}/api/rest/mentions/tag?slug=${slug}`,
         {
           method: 'GET',
           headers: {},
@@ -201,9 +200,7 @@ const parseTrustfolioUrl = async (
       }
 
       const response = await fetch(
-        `${
-          import.meta.env.VITE_HASURA_API_URL
-        }/api/rest/mentions/review?id=${id}`,
+        `${HASURA_API_URL}/api/rest/mentions/review?id=${id}`,
         {
           method: 'GET',
           headers: {},
@@ -264,9 +261,7 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
     } else {
       try {
         const response = await fetch(
-          `${
-            import.meta.env.VITE_HASURA_API_URL
-          }/api/rest/mentions/search?search=${query}`,
+          `${HASURA_API_URL}/api/rest/mentions/search?search=${query}`,
           {
             method: 'GET',
             headers: {},
@@ -286,9 +281,7 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
               label: item.name,
               id: item.public_id,
               type: 'member',
-              url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
-                item.slug
-              }`,
+              url: `${MARKETPLACE_URL}/profil/${item.slug}`,
             })
           ),
           ...(data.search_tags || []).map(
@@ -304,12 +297,8 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
               id: item.public_id,
               type: 'tag',
               url: item.parent
-                ? `${import.meta.env.VITE_MARKETPLACE_URL}/membres/${
-                    item.parent.slug
-                  }/${item.slug}`
-                : `${import.meta.env.VITE_MARKETPLACE_URL}/membres/services/${
-                    item.slug
-                  }`,
+                ? `${MARKETPLACE_URL}/membres/${item.parent.slug}/${item.slug}`
+                : `${MARKETPLACE_URL}/membres/services/${item.slug}`,
             })
           ),
           ...(data.search_organization_groups || []).map(
@@ -317,9 +306,7 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
               label: item.parent.name,
               id: item.public_id,
               type: 'buyer',
-              url: `${import.meta.env.VITE_MARKETPLACE_URL}/membres/clients/${
-                item.public_id
-              }`,
+              url: `${MARKETPLACE_URL}/membres/clients/${item.public_id}`,
             })
           ),
           ...(data.search_endorsements || []).map(
@@ -341,9 +328,7 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
               }`,
               id: item.public_id,
               type: 'review',
-              url: `${import.meta.env.VITE_MARKETPLACE_URL}/profil/${
-                item.owner.slug
-              }/reference/${item.public_id}`,
+              url: `${MARKETPLACE_URL}/profil/${item.owner.slug}/reference/${item.public_id}`,
             })
           ),
         ]
