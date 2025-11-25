@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Editor as CoreEditor, mergeAttributes } from '@tiptap/core'
+import { Editor as CoreEditor, mergeAttributes, Node } from '@tiptap/core'
 import { useEditor, Editor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -28,6 +28,8 @@ import ImageIcon from '~/icons/compiled/Image'
 import VideoIcon from '~/icons/compiled/Play'
 import { ShortcutMap, getShortcuts } from '~/utils/usePlatform'
 import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
+import { Callout } from './Callout'
+import CalloutEditor from './CalloutEditor'
 const CustomLink = Link.extend({
   addKeyboardShortcuts() {
     return {
@@ -150,6 +152,19 @@ export default function IVRichTextEditor({
             id: {
               default: '',
             },
+            variant: {
+              default: 'inline',
+              parseHTML: element =>
+                element.getAttribute('data-mention-variant') || 'inline',
+              renderHTML: attributes => {
+                if (!attributes.variant || attributes.variant === 'inline') {
+                  return {}
+                }
+                return {
+                  'data-mention-variant': attributes.variant,
+                }
+              },
+            },
           }
         },
       }).configure({
@@ -169,6 +184,7 @@ export default function IVRichTextEditor({
                 'data-mention-id': node.attrs.id,
                 'data-mention-label': node.attrs.label,
                 'data-mention-url': node.attrs.url,
+                'data-mention-variant': node.attrs.variant || 'inline',
               },
               options.HTMLAttributes
             ),
@@ -177,6 +193,104 @@ export default function IVRichTextEditor({
         },
         suggestion: mentionSuggestionOptions,
       }),
+      // Block-level mention nodes for pill variants
+      Node.create({
+        name: 'mentionPill',
+        group: 'block',
+        atom: true,
+        addAttributes() {
+          return {
+            type: {
+              default: '',
+            },
+            url: {
+              default: '',
+            },
+            label: {
+              default: '',
+            },
+            id: {
+              default: '',
+            },
+            variant: {
+              default: 'pill',
+            },
+          }
+        },
+        parseHTML() {
+          return [
+            {
+              tag: 'div[data-mention-pill]',
+            },
+          ]
+        },
+        renderHTML({ node }) {
+          return [
+            'div',
+            {
+              'data-mention-pill': '',
+              'data-mention-type': node.attrs.type,
+              'data-mention-id': node.attrs.id,
+              'data-mention-label': node.attrs.label,
+              'data-mention-url': node.attrs.url,
+              'data-mention-variant': 'pill',
+              class: `mention-pill mention-${node.attrs.type}`,
+              style:
+                'display: inline-block; padding: 0.5rem 1rem; border-radius: 9999px; margin: 0.25rem 0;',
+            },
+            `${node.attrs.label ?? node.attrs.id}`,
+          ]
+        },
+      }),
+      Node.create({
+        name: 'mentionMegaPill',
+        group: 'block',
+        atom: true,
+        addAttributes() {
+          return {
+            type: {
+              default: '',
+            },
+            url: {
+              default: '',
+            },
+            label: {
+              default: '',
+            },
+            id: {
+              default: '',
+            },
+            variant: {
+              default: 'mega-pill',
+            },
+          }
+        },
+        parseHTML() {
+          return [
+            {
+              tag: 'div[data-mention-mega-pill]',
+            },
+          ]
+        },
+        renderHTML({ node }) {
+          return [
+            'div',
+            {
+              'data-mention-mega-pill': '',
+              'data-mention-type': node.attrs.type,
+              'data-mention-id': node.attrs.id,
+              'data-mention-label': node.attrs.label,
+              'data-mention-url': node.attrs.url,
+              'data-mention-variant': 'mega-pill',
+              class: `mention-mega-pill mention-${node.attrs.type}`,
+              style:
+                'display: block; padding: 1rem 1.5rem; border-radius: 0.5rem; margin: 0.5rem 0; font-size: 1.125rem;',
+            },
+            `${node.attrs.label ?? node.attrs.id}`,
+          ]
+        },
+      }),
+      Callout,
       Youtube.configure({
         controls: false,
         nocookie: true,
@@ -244,6 +358,331 @@ export default function IVRichTextEditor({
         disabled={disabled}
         id={id}
       />
+      <CalloutClickHandler editor={editor} />
+      <MentionClickHandler editor={editor} />
+    </div>
+  )
+}
+
+function CalloutClickHandler({ editor }: { editor: Editor | null }) {
+  const [showEditor, setShowEditor] = useState(false)
+  const [calloutAttrs, setCalloutAttrs] = useState<{
+    backgroundColor?: string
+    textColor?: string
+    emoji?: string
+  } | null>(null)
+  const [position, setPosition] = useState<{
+    top: number
+    left: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!editor) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const calloutElement = target.closest('[data-callout]')
+
+      if (calloutElement) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const rect = calloutElement.getBoundingClientRect()
+        const { from } = editor.state.selection
+        const node = editor.state.doc.nodeAt(from)
+
+        if (node && node.type.name === 'callout') {
+          setCalloutAttrs({
+            backgroundColor: node.attrs.backgroundColor,
+            textColor: node.attrs.textColor,
+            emoji: node.attrs.emoji,
+          })
+          setPosition({
+            top: rect.bottom + window.scrollY,
+            left: rect.left + window.scrollX,
+          })
+          setShowEditor(true)
+        }
+      } else {
+        setShowEditor(false)
+      }
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+    }
+  }, [editor])
+
+  if (!editor || !showEditor || !position) return null
+
+  return (
+    <div
+      className="fixed z-50"
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+      }}
+    >
+      <CalloutEditor
+        editor={editor}
+        onClose={() => setShowEditor(false)}
+        initialAttrs={calloutAttrs || undefined}
+      />
+    </div>
+  )
+}
+
+function MentionClickHandler({ editor }: { editor: Editor | null }) {
+  const [showMenu, setShowMenu] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number
+    left: number
+  } | null>(null)
+  const [mentionNode, setMentionNode] = useState<{
+    node: {
+      attrs: Record<string, unknown>
+      type: { name: string }
+      nodeSize: number
+    }
+    pos: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!editor) return
+
+    const findMentionNode = (element: HTMLElement) => {
+      // Use ProseMirror's posAtDOM to find the position
+      const pos = editor.view.posAtDOM(element, 0)
+      if (pos === null || pos === undefined) return null
+
+      const $pos = editor.state.doc.resolve(pos)
+      let node = $pos.nodeAfter
+      let nodePos = $pos.pos
+
+      // If not found, check the node before
+      if (
+        !node ||
+        (node.type.name !== 'mention' &&
+          node.type.name !== 'mentionPill' &&
+          node.type.name !== 'mentionMegaPill')
+      ) {
+        node = $pos.nodeBefore
+        nodePos = $pos.pos - (node?.nodeSize || 0)
+      }
+
+      // If still not found, traverse the document
+      if (
+        !node ||
+        (node.type.name !== 'mention' &&
+          node.type.name !== 'mentionPill' &&
+          node.type.name !== 'mentionMegaPill')
+      ) {
+        editor.state.doc.nodesBetween(
+          Math.max(0, pos - 10),
+          Math.min(editor.state.doc.content.size, pos + 10),
+          (n, p) => {
+            if (
+              n.type.name === 'mention' ||
+              n.type.name === 'mentionPill' ||
+              n.type.name === 'mentionMegaPill'
+            ) {
+              node = n
+              nodePos = p
+              return false
+            }
+          }
+        )
+      }
+
+      if (
+        node &&
+        (node.type.name === 'mention' ||
+          node.type.name === 'mentionPill' ||
+          node.type.name === 'mentionMegaPill')
+      ) {
+        return { node, pos: nodePos }
+      }
+
+      return null
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const mentionElement = target.closest(
+        '.mention, [data-mention-pill], [data-mention-mega-pill]'
+      )
+
+      if (mentionElement && (event.ctrlKey || event.metaKey)) {
+        // Ctrl/Cmd + Click to show variant menu
+        event.preventDefault()
+        event.stopPropagation()
+
+        const found = findMentionNode(mentionElement as HTMLElement)
+        if (found) {
+          const rect = mentionElement.getBoundingClientRect()
+          setMentionNode(found)
+          setMenuPosition({
+            top: rect.bottom + window.scrollY + 4,
+            left: rect.left + window.scrollX,
+          })
+          setShowMenu(true)
+        }
+      } else {
+        setShowMenu(false)
+      }
+    }
+
+    const handleContextMenu = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const mentionElement = target.closest(
+        '.mention, [data-mention-pill], [data-mention-mega-pill]'
+      )
+
+      if (mentionElement) {
+        event.preventDefault()
+        event.stopPropagation()
+
+        const found = findMentionNode(mentionElement as HTMLElement)
+        if (found) {
+          const rect = mentionElement.getBoundingClientRect()
+          setMentionNode(found)
+          setMenuPosition({
+            top: rect.bottom + window.scrollY + 4,
+            left: rect.left + window.scrollX,
+          })
+          setShowMenu(true)
+        }
+      }
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.mention-variant-menu')) {
+        setShowMenu(false)
+      }
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+    editorElement.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('click', handleClickOutside)
+
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+      editorElement.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [editor])
+
+  const changeVariant = (variant: 'inline' | 'pill' | 'mega-pill') => {
+    if (!editor || !mentionNode) return
+
+    const { node, pos } = mentionNode
+    const attrs = {
+      type: node.attrs.type,
+      url: node.attrs.url,
+      label: node.attrs.label,
+      id: node.attrs.id,
+    }
+
+    if (variant === 'inline') {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContent({
+          type: 'mention',
+          attrs: { ...attrs, variant: 'inline' },
+        })
+        .run()
+    } else if (variant === 'pill') {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContent({
+          type: 'mentionPill',
+          attrs: { ...attrs, variant: 'pill' },
+        })
+        .run()
+    } else {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + node.nodeSize })
+        .insertContent({
+          type: 'mentionMegaPill',
+          attrs: { ...attrs, variant: 'mega-pill' },
+        })
+        .run()
+    }
+
+    setShowMenu(false)
+  }
+
+  if (!showMenu || !menuPosition || !mentionNode) return null
+
+  const currentVariant =
+    mentionNode.node.attrs.variant ||
+    (mentionNode.node.type.name === 'mentionPill'
+      ? 'pill'
+      : mentionNode.node.type.name === 'mentionMegaPill'
+      ? 'mega-pill'
+      : 'inline')
+
+  return (
+    <div
+      className="mention-variant-menu fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[120px]"
+      style={{
+        top: `${menuPosition.top}px`,
+        left: `${menuPosition.left}px`,
+      }}
+    >
+      <div className="text-xs font-medium text-gray-700 mb-2 px-2">Variant</div>
+      <button
+        type="button"
+        onClick={() => changeVariant('inline')}
+        className={classNames(
+          'w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors',
+          {
+            'bg-indigo-50 text-indigo-700 font-medium':
+              currentVariant === 'inline',
+            'text-gray-700': currentVariant !== 'inline',
+          }
+        )}
+      >
+        Inline
+      </button>
+      <button
+        type="button"
+        onClick={() => changeVariant('pill')}
+        className={classNames(
+          'w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors',
+          {
+            'bg-indigo-50 text-indigo-700 font-medium':
+              currentVariant === 'pill',
+            'text-gray-700': currentVariant !== 'pill',
+          }
+        )}
+      >
+        Pill
+      </button>
+      <button
+        type="button"
+        onClick={() => changeVariant('mega-pill')}
+        className={classNames(
+          'w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 transition-colors',
+          {
+            'bg-indigo-50 text-indigo-700 font-medium':
+              currentVariant === 'mega-pill',
+            'text-gray-700': currentVariant !== 'mega-pill',
+          }
+        )}
+      >
+        Mega Pill
+      </button>
     </div>
   )
 }
@@ -256,6 +695,7 @@ function MenuBar({
   disabled: boolean
 }) {
   const [headingLevel, setHeadingLevel] = useState(0)
+  const [showCalloutEditor, setShowCalloutEditor] = useState(false)
 
   const setHeading = useCallback(({ editor }: { editor: any }) => {
     setHeadingLevel(editor.getAttributes('heading')?.level ?? 0)
@@ -482,6 +922,28 @@ function MenuBar({
             },
           ]}
         />
+        <div className="relative">
+          <MenuBarButtonGroup
+            buttons={[
+              {
+                title: 'Add callout',
+                label: <span className="text-base">💡</span>,
+                disabled: disabled || !editor.can().setCallout(),
+                onClick() {
+                  setShowCalloutEditor(true)
+                },
+              },
+            ]}
+          />
+          {showCalloutEditor && (
+            <div className="absolute top-full left-0 z-50 mt-1">
+              <CalloutEditor
+                editor={editor}
+                onClose={() => setShowCalloutEditor(false)}
+              />
+            </div>
+          )}
+        </div>
         <MenuBarButtonGroup
           buttons={[
             {

@@ -84,4 +84,54 @@
     background-color: #f1f5f9;
     color: #0f172a;
   }
+
+  /* Mention pill variants */
+  .mention-pill {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    margin: 0.25rem 0;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .mention-pill:hover {
+    opacity: 0.8;
+  }
+
+  .mention-mega-pill {
+    display: block;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    margin: 0.5rem 0;
+    font-size: 1.125rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .mention-mega-pill:hover {
+    opacity: 0.8;
+  }
+
+  /* Callout styles */
+  [data-callout] {
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  [data-callout]:hover {
+    opacity: 0.9;
+  }
+
+  /* Align emoji with first line of text in callout */
+  [data-callout] > div:first-child {
+    line-height: 1.5;
+    padding-top: 0;
+    margin-top: 0;
+  }
+
+  /* Ensure the first paragraph in callout aligns properly */
+  [data-callout] > div:last-child > p:first-child {
+    margin-top: 0;
+  }
 }

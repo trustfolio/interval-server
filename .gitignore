@@ -29,3 +29,5 @@ release
 release.tar.gz
 
 .npmrc
+
+.DS_Store
