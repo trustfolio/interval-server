@@ -25,12 +25,8 @@ export interface TfMentionNodeAttrs {
   type:
     | 'member'
     | 'review'
-    | 'group'
+    | 'membership'
     | 'collection'
-    | 'user'
-    | 'reward'
-    | 'asset'
-    | 'quality'
     | 'tag'
     | 'article'
     | 'leaderboard'

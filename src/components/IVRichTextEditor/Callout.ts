@@ -85,6 +85,26 @@ export const Callout = Node.create<CalloutOptions>({
     return [
       {
         tag: 'div[data-callout]',
+        getAttrs: element => {
+          const div = element as HTMLElement
+          return {
+            backgroundColor: div.getAttribute('data-background-color') || '#f3f4f6',
+            textColor: div.getAttribute('data-text-color') || '#1f2937',
+            emoji: div.getAttribute('data-emoji') || '💡',
+          }
+        },
+        contentElement: (node) => {
+          // Find the content div (the one with flex: 1 style, which is the second div)
+          const htmlElement = node as HTMLElement
+          const divs = Array.from(htmlElement.querySelectorAll('div'))
+          // The content div is the one with flex: 1 in its style
+          const contentDiv = divs.find((div: HTMLElement) => {
+            const style = div.getAttribute('style') || ''
+            return style.includes('flex: 1') || style.includes('flex:1')
+          })
+          // If not found, return the last div (which should be the content), or the node itself
+          return (contentDiv as HTMLElement) || (divs[divs.length - 1] as HTMLElement) || htmlElement
+        },
       },
     ]
   },

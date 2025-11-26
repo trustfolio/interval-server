@@ -25,7 +25,7 @@
     "start": "NODE_ENV=production ./dist/src/entry.js",
     "dev": "NODE_ENV=development nodemon --watch src --exec \"yarn build && chmod +x ./dist/src/entry.js && yarn start start\" -e ts",
     "docker": "./scripts/docker-build.sh",
-    "docker:local": "docker buildx build --platform=linux/arm64 -t trustfolio/interval-server:local . --build-arg PRISMA_SCHEMA_PATH=./prisma/schema.prisma --load",
+    "docker:local": "./scripts/docker-build-local.sh",
     "client:build": "vite build",
     "client:clean": "rm -r node_modules/.vite",
     "client:dev": "vite",

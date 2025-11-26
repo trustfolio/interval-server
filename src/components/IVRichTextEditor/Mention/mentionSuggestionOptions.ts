@@ -5,9 +5,10 @@ import SuggestionList, { type SuggestionListRef } from './SuggestionList'
 import fetch from 'cross-fetch'
 
 const HASURA_API_URL =
-  import.meta.env.VITE_HASURA_API_URL || 'http://hasura-service:8080'
+  import.meta.env.VITE_HASURA_API_URL ||
+  'https://local.hasura.local.nhost.run:444'
 const MARKETPLACE_URL =
-  import.meta.env.VITE_MARKETPLACE_URL || 'https://trustfolio.co'
+  import.meta.env.VITE_MARKETPLACE_URL || 'https://trustfolio.dev'
 
 export type MentionSuggestion = {
   id: string
@@ -16,12 +17,8 @@ export type MentionSuggestion = {
   type:
     | 'member'
     | 'review'
-    | 'group'
+    | 'membership'
     | 'collection'
-    | 'user'
-    | 'reward'
-    | 'asset'
-    | 'quality'
     | 'tag'
     | 'article'
     | 'leaderboard'
@@ -329,6 +326,51 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
               id: item.public_id,
               type: 'review',
               url: `${MARKETPLACE_URL}/profil/${item.owner.slug}/reference/${item.public_id}`,
+            })
+          ),
+          ...(data.search_marketplace_pages || []).map(
+            (item: {
+              kind: 'LEADERBOARD' | 'ARTICLE'
+              public_id: string
+              slug: string
+              localized_metadata: {
+                title: string
+              }[]
+            }) => ({
+              label: item.localized_metadata?.[0]?.title || item.slug,
+              id: item.public_id,
+              type: item.kind.toLowerCase(),
+              url:
+                item.kind === 'ARTICLE'
+                  ? `${MARKETPLACE_URL}/articles/${item.slug}`
+                  : `${MARKETPLACE_URL}/membres/leaderboards/${item.slug}`,
+            })
+          ),
+          ...(data.search_members_collections || []).map(
+            (item: {
+              title: { FR_FR: string }
+              public_id: string
+              owner: { name: string; slug: string }
+            }) => ({
+              label: `[${item.owner.name}] ${
+                item.title.FR_FR || Object.values(item.title)?.[0]
+              }`,
+              id: item.public_id,
+              type: 'collection',
+              url: `${MARKETPLACE_URL}/profil/${item.owner.slug}/collection/${item.public_id}`,
+            })
+          ),
+          ...(data.search_memberships || []).map(
+            (item: {
+              first_name: string
+              last_name: string
+              public_id: string
+              owner: { name: string; slug: string }
+            }) => ({
+              label: `[${item.owner.name}] ${item.first_name} ${item.last_name}`,
+              id: item.public_id,
+              type: 'membership',
+              url: `${MARKETPLACE_URL}/profil/${item.owner.slug}/culture#${item.public_id}`,
             })
           ),
         ]

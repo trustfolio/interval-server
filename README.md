@@ -60,8 +60,8 @@ To support file uploads, you will need to configure your S3 bucket for [Cross-or
 - `SECRET` is a secret that _you must provide_ for use in encrypting passwords. Any string is valid for this value, but you should use something secure!
 - `WSS_API_SECRET` is a secret that _you must provide_. It is used internally by Interval Server for communication between Interval services. Any string is valid for this value, but you should use something secure!
 - `AUTH_COOKIE_SECRET` is a secret that _you must provide_ for use in encrypting session cookies. Any string **at least 32 characters in length** is valid for this value, but you should use something secure!
-- `VITE_HASURA_API_URL` is the URL of the Trustfolio Hasura API.
-- `VITE_MARKETPLACE_URL` is the URL of the Trustfolio Marketplace.
+- `HASURA_API_URL` is the URL of the Trustfolio Hasura API.
+- `MARKETPLACE_URL` is the URL of the Trustfolio Marketplace.
 
 ### Ports
 

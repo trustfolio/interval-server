@@ -202,18 +202,23 @@ export default function IVRichTextEditor({
           return {
             type: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-type') || '',
             },
             url: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-url') || '',
             },
             label: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-label') || element.textContent || '',
             },
             id: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-id') || '',
             },
             variant: {
               default: 'pill',
+              parseHTML: element => element.getAttribute('data-mention-variant') || 'pill',
             },
           }
         },
@@ -221,6 +226,16 @@ export default function IVRichTextEditor({
           return [
             {
               tag: 'div[data-mention-pill]',
+              getAttrs: element => {
+                const div = element as HTMLElement
+                return {
+                  type: div.getAttribute('data-mention-type') || '',
+                  url: div.getAttribute('data-mention-url') || '',
+                  label: div.getAttribute('data-mention-label') || div.textContent || '',
+                  id: div.getAttribute('data-mention-id') || '',
+                  variant: div.getAttribute('data-mention-variant') || 'pill',
+                }
+              },
             },
           ]
         },
@@ -250,18 +265,23 @@ export default function IVRichTextEditor({
           return {
             type: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-type') || '',
             },
             url: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-url') || '',
             },
             label: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-label') || element.textContent || '',
             },
             id: {
               default: '',
+              parseHTML: element => element.getAttribute('data-mention-id') || '',
             },
             variant: {
               default: 'mega-pill',
+              parseHTML: element => element.getAttribute('data-mention-variant') || 'mega-pill',
             },
           }
         },
@@ -269,6 +289,16 @@ export default function IVRichTextEditor({
           return [
             {
               tag: 'div[data-mention-mega-pill]',
+              getAttrs: element => {
+                const div = element as HTMLElement
+                return {
+                  type: div.getAttribute('data-mention-type') || '',
+                  url: div.getAttribute('data-mention-url') || '',
+                  label: div.getAttribute('data-mention-label') || div.textContent || '',
+                  id: div.getAttribute('data-mention-id') || '',
+                  variant: div.getAttribute('data-mention-variant') || 'mega-pill',
+                }
+              },
             },
           ]
         },

@@ -2,6 +2,14 @@ FROM node:18.18.0-alpine AS builder
 
 WORKDIR /app
 
+# Accept VITE_ environment variables as build arguments
+ARG HASURA_API_URL
+ARG MARKETPLACE_URL
+
+# Set them as environment variables for the build process
+ENV VITE_HASURA_API_URL=${HASURA_API_URL}
+ENV VITE_MARKETPLACE_URL=${MARKETPLACE_URL}
+
 # Copy package files
 COPY package.json yarn.lock ./
 
