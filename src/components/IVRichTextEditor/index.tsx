@@ -83,13 +83,25 @@ function clearFormattingButtonHandler(editor: CoreEditor) {
     .run()
 }
 
+function cleanUrl(url: string | undefined | null): string {
+  if (!url) return ''
+  // Extract only the URL part, removing any HTML that might have been incorrectly included
+  const urlMatch = url.match(/^(https?:\/\/[^\s"<>]+)/)
+  return urlMatch ? urlMatch[1] : url
+}
+
 function getAllNodesAttributesByType(doc: any, nodeType: string): Array<any> {
   // console.log('getAllNodesAttributesByType')
   const result: Array<any> = []
 
   doc.descendants(node => {
     if (node.type.name === nodeType) {
-      result.push(node.attrs)
+      // Clean the URL attribute to ensure it doesn't contain HTML
+      const attrs = { ...node.attrs }
+      if (attrs.url) {
+        attrs.url = cleanUrl(attrs.url)
+      }
+      result.push(attrs)
     }
   })
 
@@ -142,15 +154,36 @@ export default function IVRichTextEditor({
           return {
             type: {
               default: '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-type') || '',
             },
             url: {
               default: '',
+              parseHTML: element => {
+                // Prefer data-mention-url as it's more reliable
+                const url = element.getAttribute('data-mention-url')
+                if (url) return url
+                // Fallback to href, but extract only the URL part (before any HTML attributes)
+                const href = element.getAttribute('href')
+                if (href) {
+                  // Extract only the URL part, removing any HTML that might have been incorrectly included
+                  const urlMatch = href.match(/^(https?:\/\/[^\s"<>]+)/)
+                  return urlMatch ? urlMatch[1] : href
+                }
+                return ''
+              },
             },
             label: {
               default: '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-label') ||
+                element.textContent ||
+                '',
             },
             id: {
               default: '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-id') || '',
             },
             variant: {
               default: 'inline',
@@ -202,23 +235,30 @@ export default function IVRichTextEditor({
           return {
             type: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-type') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-type') || '',
             },
             url: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-url') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-url') || '',
             },
             label: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-label') || element.textContent || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-label') ||
+                element.textContent ||
+                '',
             },
             id: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-id') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-id') || '',
             },
             variant: {
               default: 'pill',
-              parseHTML: element => element.getAttribute('data-mention-variant') || 'pill',
+              parseHTML: element =>
+                element.getAttribute('data-mention-variant') || 'pill',
             },
           }
         },
@@ -231,7 +271,10 @@ export default function IVRichTextEditor({
                 return {
                   type: div.getAttribute('data-mention-type') || '',
                   url: div.getAttribute('data-mention-url') || '',
-                  label: div.getAttribute('data-mention-label') || div.textContent || '',
+                  label:
+                    div.getAttribute('data-mention-label') ||
+                    div.textContent ||
+                    '',
                   id: div.getAttribute('data-mention-id') || '',
                   variant: div.getAttribute('data-mention-variant') || 'pill',
                 }
@@ -265,23 +308,30 @@ export default function IVRichTextEditor({
           return {
             type: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-type') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-type') || '',
             },
             url: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-url') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-url') || '',
             },
             label: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-label') || element.textContent || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-label') ||
+                element.textContent ||
+                '',
             },
             id: {
               default: '',
-              parseHTML: element => element.getAttribute('data-mention-id') || '',
+              parseHTML: element =>
+                element.getAttribute('data-mention-id') || '',
             },
             variant: {
               default: 'mega-pill',
-              parseHTML: element => element.getAttribute('data-mention-variant') || 'mega-pill',
+              parseHTML: element =>
+                element.getAttribute('data-mention-variant') || 'mega-pill',
             },
           }
         },
@@ -294,9 +344,13 @@ export default function IVRichTextEditor({
                 return {
                   type: div.getAttribute('data-mention-type') || '',
                   url: div.getAttribute('data-mention-url') || '',
-                  label: div.getAttribute('data-mention-label') || div.textContent || '',
+                  label:
+                    div.getAttribute('data-mention-label') ||
+                    div.textContent ||
+                    '',
                   id: div.getAttribute('data-mention-id') || '',
-                  variant: div.getAttribute('data-mention-variant') || 'mega-pill',
+                  variant:
+                    div.getAttribute('data-mention-variant') || 'mega-pill',
                 }
               },
             },
