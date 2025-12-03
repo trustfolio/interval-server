@@ -40,6 +40,24 @@ const CustomLink = Link.extend({
       'Mod-Enter': () => true,
     }
   },
+  parseHTML() {
+    return [
+      {
+        tag: 'a[href]',
+        getAttrs: element => {
+          const el = element as HTMLElement
+          // Don't parse links that are mentions - let the Mention extension handle them
+          if (
+            el.hasAttribute('data-mention-type') ||
+            el.classList.contains('mention')
+          ) {
+            return false
+          }
+          return {}
+        },
+      },
+    ]
+  },
 })
 
 function linkButtonHandler(editor: CoreEditor) {
@@ -90,20 +108,97 @@ function cleanUrl(url: string | undefined | null): string {
   return urlMatch ? urlMatch[1] : url
 }
 
-function getAllNodesAttributesByType(doc: any, nodeType: string): Array<any> {
-  // console.log('getAllNodesAttributesByType')
+function getAllMentions(doc: any): Array<any> {
   const result: Array<any> = []
+  const mentionTypes = ['mention', 'mentionPill', 'mentionMegaPill']
+  const allNodeTypes: Record<string, number> = {}
 
+  // First pass: count all node types to understand document structure
   doc.descendants(node => {
-    if (node.type.name === nodeType) {
+    const nodeType = node.type.name
+    allNodeTypes[nodeType] = (allNodeTypes[nodeType] || 0) + 1
+  })
+
+  // eslint-disable-next-line no-console
+  console.log(
+    '[IVRichTextEditor] getAllMentions: all node types in document',
+    allNodeTypes
+  )
+
+  // Second pass: collect mentions and log potential mentions
+  doc.descendants((node, pos) => {
+    const nodeType = node.type.name
+
+    // Check if this is a link node that might actually be a mention
+    // (TipTap might parse mentions as links if Link extension parses first)
+    if (nodeType === 'link' && node.attrs.href) {
+      // Check if the link has mention attributes in the HTML
+      // We need to check the actual HTML element to see if it has data-mention-* attributes
+      // But we can't access the DOM from here, so we check the JSON structure
+      // If the link has a class that suggests it's a mention, we should treat it as one
+      const href = node.attrs.href
+      // eslint-disable-next-line no-console
+      console.log('[IVRichTextEditor] getAllMentions: found link node', {
+        nodeType,
+        pos,
+        href,
+        attrs: node.attrs,
+        textContent: node.textContent?.substring(0, 50),
+      })
+    }
+
+    // Log all nodes that might be mentions (for debugging)
+    if (
+      nodeType === 'mention' ||
+      nodeType === 'mentionPill' ||
+      nodeType === 'mentionMegaPill' ||
+      nodeType === 'link' ||
+      (nodeType === 'text' &&
+        node.marks?.some((m: any) => m.type.name === 'mention'))
+    ) {
+      // eslint-disable-next-line no-console
+      console.log('[IVRichTextEditor] getAllMentions: potential mention node', {
+        nodeType,
+        pos,
+        attrs: node.attrs,
+        marks: node.marks?.map((m: any) => m.type.name),
+        textContent: node.textContent?.substring(0, 50),
+      })
+    }
+
+    if (mentionTypes.includes(nodeType)) {
       // Clean the URL attribute to ensure it doesn't contain HTML
       const attrs = { ...node.attrs }
       if (attrs.url) {
         attrs.url = cleanUrl(attrs.url)
       }
+      // Ensure variant is set correctly based on node type if not already set
+      if (!attrs.variant) {
+        if (nodeType === 'mentionPill') {
+          attrs.variant = 'pill'
+        } else if (nodeType === 'mentionMegaPill') {
+          attrs.variant = 'mega-pill'
+        } else {
+          attrs.variant = 'inline'
+        }
+      }
+
+      // Debug log for each mention node found in the document
+      // Useful to understand what TipTap has parsed at load time (including existing HTML)
+      // eslint-disable-next-line no-console
+      console.log('[IVRichTextEditor] getAllMentions: found mention node', {
+        nodeType: node.type.name,
+        pos,
+        attrs,
+      })
+
       result.push(attrs)
     }
   })
+
+  // Global debug log of all mentions extracted from the document
+  // eslint-disable-next-line no-console
+  console.log('[IVRichTextEditor] getAllMentions: final result', result)
 
   return result
 }
@@ -136,6 +231,15 @@ export default function IVRichTextEditor({
   autoFocus = false,
   hasError,
 }: IVRichTextEditorProps) {
+  // Log the initial content to debug mention parsing
+  // eslint-disable-next-line no-console
+  console.log('[IVRichTextEditor] Initial content', {
+    hasJson: !!defaultValue?.json,
+    hasHtml: !!defaultValue?.html,
+    htmlPreview: defaultValue?.html?.substring(0, 500),
+    mentionsInDefaultValue: defaultValue?.mentions,
+  })
+
   const editor = useEditor({
     content: defaultValue?.json || defaultValue?.html,
     editable: !disabled,
@@ -199,6 +303,91 @@ export default function IVRichTextEditor({
               },
             },
           }
+        },
+        parseHTML() {
+          return [
+            {
+              tag: 'a[data-mention-type]',
+              getAttrs: element => {
+                const el = element as HTMLElement
+                // Only parse as mention if it has data-mention-type (not pill/megapill)
+                const variant = el.getAttribute('data-mention-variant')
+                if (variant === 'pill' || variant === 'mega-pill') {
+                  return false
+                }
+                const attrs = {
+                  type: el.getAttribute('data-mention-type') || '',
+                  url: (() => {
+                    const url = el.getAttribute('data-mention-url')
+                    if (url) return url
+                    const href = el.getAttribute('href')
+                    if (href) {
+                      const urlMatch = href.match(/^(https?:\/\/[^\s"<>]+)/)
+                      return urlMatch ? urlMatch[1] : href
+                    }
+                    return ''
+                  })(),
+                  label:
+                    el.getAttribute('data-mention-label') ||
+                    el.textContent ||
+                    '',
+                  id: el.getAttribute('data-mention-id') || '',
+                  variant: variant || 'inline',
+                }
+                // eslint-disable-next-line no-console
+                console.log(
+                  '[IVRichTextEditor] Mention.parseHTML a[data-mention-type]',
+                  {
+                    outerHTML: el.outerHTML,
+                    attrs,
+                  }
+                )
+                return attrs
+              },
+            },
+            {
+              tag: 'a.mention',
+              getAttrs: element => {
+                const el = element as HTMLElement
+                // Only parse as mention if it doesn't have data-mention-pill or data-mention-mega-pill
+                if (
+                  el.hasAttribute('data-mention-pill') ||
+                  el.hasAttribute('data-mention-mega-pill')
+                ) {
+                  return false
+                }
+                // Check if it has data-mention-type to confirm it's a mention
+                if (!el.hasAttribute('data-mention-type')) {
+                  return false
+                }
+                const attrs = {
+                  type: el.getAttribute('data-mention-type') || '',
+                  url: (() => {
+                    const url = el.getAttribute('data-mention-url')
+                    if (url) return url
+                    const href = el.getAttribute('href')
+                    if (href) {
+                      const urlMatch = href.match(/^(https?:\/\/[^\s"<>]+)/)
+                      return urlMatch ? urlMatch[1] : href
+                    }
+                    return ''
+                  })(),
+                  label:
+                    el.getAttribute('data-mention-label') ||
+                    el.textContent ||
+                    '',
+                  id: el.getAttribute('data-mention-id') || '',
+                  variant: el.getAttribute('data-mention-variant') || 'inline',
+                }
+                // eslint-disable-next-line no-console
+                console.log('[IVRichTextEditor] Mention.parseHTML a.mention', {
+                  outerHTML: el.outerHTML,
+                  attrs,
+                })
+                return attrs
+              },
+            },
+          ]
         },
       }).configure({
         deleteTriggerWithBackspace: true,
@@ -392,11 +581,26 @@ export default function IVRichTextEditor({
       // way for the parent to ensure that text is entered and not just empty
       // blocks.
 
+      const mentions = getAllMentions(editor.state.doc)
+      const json = editor.getJSON()
+
+      // Also check the JSON structure for mentions that might not be detected
+      const jsonStr = JSON.stringify(json)
+      // eslint-disable-next-line no-console
+      console.log('[IVRichTextEditor] onUpdate: checking JSON for mentions', {
+        jsonMentionsCount: (jsonStr.match(/mention/g) || []).length,
+        jsonPreview: jsonStr.substring(0, 1000),
+      })
+
+      // Debug log for every onUpdate with the mentions that will be sent upstream
+      // eslint-disable-next-line no-console
+      console.log('[IVRichTextEditor] onUpdate: mentions payload', mentions)
+
       onChange(
         {
           html: editor.getHTML(),
-          json: editor.getJSON(),
-          mentions: getAllNodesAttributesByType(editor.state.doc, 'mention'),
+          json,
+          mentions,
         },
         editor.getText()
       )
