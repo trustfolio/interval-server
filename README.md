@@ -121,6 +121,10 @@ Once you run `npm i -g @interval/server`, the following commands are available:
 
 Starts Interval Server. See above for information on running Interval Server locally or in production.
 
+## Fork Documentation
+
+- Rich text editor media + links spec: [`./docs/rich-text-editor-media-links-spec.md`](./docs/rich-text-editor-media-links-spec.md)
+
 ## Contributing
 
 For our initial release, we're focused on making it easy to setup and run your own Interval Server instance. We'll make it easier to contribute (and document how you can) in the future, but for now we aren't actively soliciting new contributions.

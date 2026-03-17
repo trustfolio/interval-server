@@ -291,7 +291,7 @@ test.describe.parallel('Basic transactions tests', () => {
 
     const input = page.locator('.ProseMirror')
 
-    await page.selectOption('select[aria-label="Heading level"]', '1')
+    await page.selectOption('select[aria-label="Heading level"]', '2')
     await input.type('Heading 1')
     await input.press('Enter')
     await page.click('button[aria-label="Toggle italic"]')
@@ -305,7 +305,7 @@ test.describe.parallel('Basic transactions tests', () => {
     await transactions.continue()
     await expect(page.locator('h2:has-text("You entered:")')).toBeVisible()
     expect(await page.locator('pre code').textContent()).toBe(
-      `<h1>Heading 1</h1><p><em>Emphasis</em></p><p><u>Underline</u></p>\n`
+      `<h2>Heading 1</h2><p><em>Emphasis</em></p><p><u>Underline</u></p>\n`
     )
 
     if (!isAppendUIEnabled) {
@@ -313,6 +313,35 @@ test.describe.parallel('Basic transactions tests', () => {
     }
 
     await transactions.expectSuccess()
+  })
+
+  test('io.input.richText.media_links', async ({ page, transactions }) => {
+    await page.goto(await consoleUrl())
+    await transactions.run('io.input.richText.media_links')
+    await expect(page.locator('text=Media body')).toBeVisible()
+
+    await expect(page.locator('[data-iv-video]')).toBeVisible()
+    await expect(page.locator('[data-iv-gallery]')).toBeVisible()
+    await expect(page.locator('[data-iv-link-preview]')).toBeVisible()
+    await expect(page.locator('[data-iv-link-mention]')).toBeVisible()
+
+    await page.click('button[aria-label="Add link..."]')
+    const dialog = page.locator('[role="dialog"]')
+    await dialog.locator('button:has-text("preview")').click()
+    await dialog
+      .locator('input[type="url"]')
+      .fill('https://localhost/fallback-link')
+    await dialog.locator('button:has-text("Insert link")').click()
+
+    await transactions.continue()
+    await transactions.expectSuccess({
+      hasVideo: true,
+      hasGallery: true,
+      hasLinkPreview: true,
+      hasLinkMention: true,
+      hasResponsiveVerticalVideo: true,
+      hasLocalhostFallbackLink: true,
+    })
   })
 
   test('io.display.html', async ({ page, transactions }) => {

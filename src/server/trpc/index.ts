@@ -11,6 +11,7 @@ import { transactionRouter } from './transaction'
 import { dashboardRouter } from './dashboard'
 import { groupRouter } from './group'
 import { uploadsRouter } from './uploads'
+import { linkPreviewRouter } from './linkPreview'
 import { httpHostsRouter } from './httpHosts'
 import { environmentsRouter } from './environments'
 import { logger } from '~/server/utils/logger'
@@ -33,6 +34,7 @@ const appRouter = createRouter()
   .merge('dashboard.', dashboardRouter)
   .merge('group.', groupRouter)
   .merge('uploads.', uploadsRouter)
+  .merge('linkPreview.', linkPreviewRouter)
   .merge('http-hosts.', httpHostsRouter)
   .merge('environments.', environmentsRouter)
   .middleware(authenticatedMiddleware)

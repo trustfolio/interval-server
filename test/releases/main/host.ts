@@ -449,9 +449,122 @@ export default async function setupHost() {
             ## You entered:
 
             ~~~
-            ${body}
+            ${body.html}
             ~~~
         `)
+      },
+      'io.input.richText.media_links': async io => {
+        const body = await io.input.richText('Media body', {
+          defaultValue: {
+            json: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Media and links preview' }],
+                },
+                {
+                  type: 'ivVideo',
+                  attrs: {
+                    provider: 'youtube',
+                    src: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                    aspectRatio: 'vertical',
+                  },
+                },
+                {
+                  type: 'ivGallery',
+                  attrs: {
+                    layout: 'grid',
+                    items: [
+                      {
+                        type: 'image',
+                        src: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85',
+                      },
+                      {
+                        type: 'youtube',
+                        src: 'https://www.youtube.com/watch?v=ysz5S6PUM-U',
+                      },
+                    ],
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content: [
+                    { type: 'text', text: 'Mention:' },
+                    { type: 'text', text: ' ' },
+                    {
+                      type: 'linkMentionChip',
+                      attrs: {
+                        url: 'https://interval.com',
+                        title: 'Interval',
+                        faviconUrl: 'https://interval.com/favicon.ico',
+                        siteName: 'Interval',
+                      },
+                    },
+                  ],
+                },
+                {
+                  type: 'linkPreviewCard',
+                  attrs: {
+                    url: 'https://interval.com/docs',
+                    title: 'Interval Docs',
+                    description: 'Read the framework documentation.',
+                    imageUrl:
+                      'https://interval.com/img/readme-assets/screenshot.png',
+                    faviconUrl: 'https://interval.com/favicon.ico',
+                    siteName: 'Interval',
+                  },
+                },
+              ],
+            },
+          },
+          media: {
+            image: {
+              sources: ['url'],
+            },
+            video: {
+              sources: ['youtube'],
+              aspectRatioOptions: ['horizontal', 'square', 'vertical'],
+              defaultAspectRatio: 'horizontal',
+            },
+            gallery: {
+              enabled: true,
+              layouts: ['grid', 'slider'],
+              itemSources: ['image', 'youtube'],
+              maxItems: 8,
+            },
+          },
+          links: {
+            modes: ['text', 'preview', 'mention'],
+            defaultMode: 'text',
+            preview: { enabled: true },
+            mention: { enabled: true },
+            allowedProtocols: ['http', 'https'],
+          },
+        } as any)
+
+        const html = body.html ?? ''
+        const jsonString = JSON.stringify(body.json ?? {})
+
+        return {
+          hasVideo:
+            html.includes('data-iv-video') || jsonString.includes('"type":"ivVideo"'),
+          hasGallery:
+            html.includes('data-iv-gallery') ||
+            jsonString.includes('"type":"ivGallery"'),
+          hasLinkPreview:
+            html.includes('data-iv-link-preview') ||
+            jsonString.includes('"type":"linkPreviewCard"'),
+          hasLinkMention:
+            html.includes('data-iv-link-mention') ||
+            jsonString.includes('"type":"linkMentionChip"'),
+          hasResponsiveVerticalVideo:
+            html.includes('data-aspect-ratio="vertical"') ||
+            jsonString.includes('"aspectRatio":"vertical"'),
+          hasLocalhostFallbackLink: html.includes(
+            'href="https://localhost/fallback-link"'
+          ),
+        }
       },
       html: async io => {
         const html = await io.input.text('Email body (HTML)', {
