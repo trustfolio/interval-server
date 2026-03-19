@@ -16,6 +16,7 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import Mention from '@tiptap/extension-mention'
 import Youtube from '@tiptap/extension-youtube'
+import CharacterCount from '@tiptap/extension-character-count'
 import Table from '@tiptap/extension-table'
 import TableCell from '@tiptap/extension-table-cell'
 import TableHeader from '@tiptap/extension-table-header'
@@ -678,7 +679,7 @@ function getAllMentions(doc: any): Array<any> {
 
 export interface IVRichTextEditorProps {
   id?: string
-  defaultValue?: { html: string; json?: any; mentions?: any[] }
+  defaultValue?: { html: string; json?: any; mentions?: any[]; wordCount?: number }
   media?: any
   links?: any
   review?: {
@@ -714,7 +715,7 @@ export interface IVRichTextEditorProps {
     | undefined
   >
   onChange: (
-    content: { html: string; json?: any; mentions?: any[] },
+    content: { html: string; json?: any; mentions?: any[]; wordCount?: number },
     textContent: string
   ) => void
   onBlur?: () => void
@@ -847,6 +848,9 @@ export default function IVRichTextEditor({
       }),
       Placeholder.configure({
         placeholder,
+      }),
+      CharacterCount.configure({
+        wordCounter: text => text.split(/\s+/).filter(word => word !== '').length,
       }),
       Image,
       LinkPreviewCard,
@@ -1207,6 +1211,7 @@ export default function IVRichTextEditor({
           html: editor.getHTML(),
           json,
           mentions,
+          wordCount: editor.storage.characterCount?.words?.() ?? undefined,
         },
         editor.getText()
       )
