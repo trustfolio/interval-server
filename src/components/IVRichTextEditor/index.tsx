@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+} from 'react'
 import { Editor as CoreEditor, mergeAttributes, Node } from '@tiptap/core'
 import { useEditor, Editor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -30,11 +37,14 @@ import UndoIcon from '~/icons/compiled/Undo'
 import ClearFormattingIcon from '~/icons/compiled/ClearFormatting'
 import ImageIcon from '~/icons/compiled/Image'
 import VideoIcon from '~/icons/compiled/Play'
+import MoreIcon from '~/icons/compiled/More'
 import { ShortcutMap, getShortcuts } from '~/utils/usePlatform'
 import { client as trpcClient } from '~/utils/trpc'
 import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
 import { Callout } from './Callout'
 import CalloutEditor from './CalloutEditor'
+import { Faq } from './Faq'
+import type { FaqItem } from './Faq'
 import {
   createReviewCommentsExtension,
   focusReviewComment,
@@ -127,7 +137,9 @@ function parseGalleryItems(value: string | null): GalleryItem[] {
     return parsed
       .filter(item => item && typeof item === 'object')
       .map(item => ({
-        type: (item.type === 'youtube' ? 'youtube' : 'image') as GalleryItemType,
+        type: (item.type === 'youtube'
+          ? 'youtube'
+          : 'image') as GalleryItemType,
         src: typeof item.src === 'string' ? item.src : '',
         alt: typeof item.alt === 'string' ? item.alt : undefined,
         aspectRatio:
@@ -358,7 +370,8 @@ const IVVideo = Node.create({
   },
   renderHTML({ HTMLAttributes, node }) {
     const aspectRatio: VideoAspectRatio =
-      node.attrs.aspectRatio === 'square' || node.attrs.aspectRatio === 'vertical'
+      node.attrs.aspectRatio === 'square' ||
+      node.attrs.aspectRatio === 'vertical'
         ? node.attrs.aspectRatio
         : 'horizontal'
 
@@ -419,7 +432,8 @@ const IVGallery = Node.create({
     ]
   },
   renderHTML({ HTMLAttributes, node }) {
-    const layout: GalleryLayout = node.attrs.layout === 'slider' ? 'slider' : 'grid'
+    const layout: GalleryLayout =
+      node.attrs.layout === 'slider' ? 'slider' : 'grid'
     const items: GalleryItem[] = Array.isArray(node.attrs.items)
       ? node.attrs.items
       : []
@@ -535,7 +549,10 @@ function migrateLegacyYoutubeNodes(editor: Editor): boolean {
       pos,
       nodeSize: node.nodeSize,
       src: node.attrs.src,
-      aspectRatio: inferAspectRatioFromDimensions(node.attrs.width, node.attrs.height),
+      aspectRatio: inferAspectRatioFromDimensions(
+        node.attrs.width,
+        node.attrs.height
+      ),
     })
   })
 
@@ -680,10 +697,12 @@ export interface IVRichTextEditorProps {
   }
   inputGroupKey?: string
   transactionId?: string
-  requestCustomUploadUrls?: (files: {
-    name: string
-    type: string
-  }[]) => Promise<{ uploadUrl: string; downloadUrl: string }[] | undefined>
+  requestCustomUploadUrls?: (
+    files: {
+      name: string
+      type: string
+    }[]
+  ) => Promise<{ uploadUrl: string; downloadUrl: string }[] | undefined>
   requestReviewAction?: (
     action: 'resolve' | 'unresolve',
     commentId: string
@@ -737,17 +756,23 @@ export default function IVRichTextEditor({
     review?.comments ?? []
   )
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
-    getDefaultSelectedCommentId(review?.comments ?? [], review?.selectedCommentId)
+    getDefaultSelectedCommentId(
+      review?.comments ?? [],
+      review?.selectedCommentId
+    )
   )
-  const [reviewFilter, setReviewFilter] = useState<'pending' | 'resolved' | 'all'>(
-    'pending'
-  )
-  const [reviewActionCommentId, setReviewActionCommentId] = useState<string | null>(
-    null
-  )
+  const [reviewFilter, setReviewFilter] = useState<
+    'pending' | 'resolved' | 'all'
+  >('pending')
+  const [reviewActionCommentId, setReviewActionCommentId] = useState<
+    string | null
+  >(null)
   const reviewCommentsRef = useRef<ReviewComment[]>(review?.comments ?? [])
   const selectedCommentIdRef = useRef<string | null>(
-    getDefaultSelectedCommentId(review?.comments ?? [], review?.selectedCommentId)
+    getDefaultSelectedCommentId(
+      review?.comments ?? [],
+      review?.selectedCommentId
+    )
   )
   const reviewCommentsExtension = useMemo(
     () =>
@@ -781,7 +806,8 @@ export default function IVRichTextEditor({
       }
 
       const objectKeys = files.map(
-        (_file, i) => `${id}-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`
+        (_file, i) =>
+          `${id}-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`
       )
 
       const urls = await getUploadUrls({
@@ -1138,6 +1164,7 @@ export default function IVRichTextEditor({
         },
       }),
       Callout,
+      Faq,
       Youtube.configure({
         controls: false,
         nocookie: true,
@@ -1224,7 +1251,9 @@ export default function IVRichTextEditor({
     selectedCommentIdRef.current = selectedCommentId
     if (!editor) return
 
-    editor.view.dispatch(editor.state.tr.setMeta(reviewCommentsPluginKey, Date.now()))
+    editor.view.dispatch(
+      editor.state.tr.setMeta(reviewCommentsPluginKey, Date.now())
+    )
   }, [editor, reviewComments, selectedCommentId])
 
   useEffect(() => {
@@ -1243,7 +1272,9 @@ export default function IVRichTextEditor({
     (commentId: string) => {
       setSelectedCommentId(commentId)
 
-      const comment = reviewCommentsRef.current.find(entry => entry.id === commentId)
+      const comment = reviewCommentsRef.current.find(
+        entry => entry.id === commentId
+      )
       if (!comment) return
 
       focusReviewComment(editor, comment)
@@ -1411,7 +1442,8 @@ export default function IVRichTextEditor({
   const resolvedReviewCount = orderedReviewComments.length - pendingReviewCount
   const reviewModeEnabled = !!review
   const selectedReviewComment =
-    orderedReviewComments.find(comment => comment.id === selectedCommentId) ?? null
+    orderedReviewComments.find(comment => comment.id === selectedCommentId) ??
+    null
 
   return (
     <div
@@ -1541,7 +1573,9 @@ function ReviewSidebar({
     <aside className="border border-gray-200 rounded-lg bg-gray-50 p-3 h-fit sticky top-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-gray-900">Review inbox</div>
+          <div className="text-sm font-semibold text-gray-900">
+            Review inbox
+          </div>
           <div className="text-xs text-gray-500">
             Resolve comments without leaving the editor.
           </div>
@@ -1566,7 +1600,8 @@ function ReviewSidebar({
             className={classNames(
               'rounded-full px-2.5 py-1 text-xs border transition-colors',
               {
-                'border-indigo-200 bg-indigo-50 text-indigo-700': filter === value,
+                'border-indigo-200 bg-indigo-50 text-indigo-700':
+                  filter === value,
                 'border-gray-200 bg-white text-gray-600 hover:border-gray-300':
                   filter !== value,
               }
@@ -1593,7 +1628,8 @@ function ReviewSidebar({
                   'w-full text-left rounded-lg border px-3 py-2 transition-colors',
                   {
                     'border-indigo-300 bg-indigo-50': isSelected,
-                    'border-gray-200 bg-white hover:border-gray-300': !isSelected,
+                    'border-gray-200 bg-white hover:border-gray-300':
+                      !isSelected,
                   }
                 )}
               >
@@ -1637,7 +1673,9 @@ function ReviewSidebar({
           <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Selected comment
           </div>
-          <div className="mt-2 text-sm text-gray-900">{selectedComment.comment}</div>
+          <div className="mt-2 text-sm text-gray-900">
+            {selectedComment.comment}
+          </div>
           {selectedComment.selectedText || selectedComment.anchor.text ? (
             <div className="mt-2 text-xs italic text-gray-500">
               "{selectedComment.selectedText || selectedComment.anchor.text}"
@@ -1646,7 +1684,11 @@ function ReviewSidebar({
           <div className="mt-3 flex gap-2">
             {selectedComment.status === 'PENDING' ? (
               <IVButton
-                label={actionCommentId === selectedComment.id ? 'Resolving...' : 'Resolve'}
+                label={
+                  actionCommentId === selectedComment.id
+                    ? 'Resolving...'
+                    : 'Resolve'
+                }
                 theme="primary"
                 disabled={disabled || actionCommentId === selectedComment.id}
                 onClick={() => onResolveComment(selectedComment.id)}
@@ -1654,7 +1696,9 @@ function ReviewSidebar({
             ) : (
               <IVButton
                 label={
-                  actionCommentId === selectedComment.id ? 'Reopening...' : 'Mark as open'
+                  actionCommentId === selectedComment.id
+                    ? 'Reopening...'
+                    : 'Mark as open'
                 }
                 theme="secondary"
                 disabled={disabled || actionCommentId === selectedComment.id}
@@ -2037,7 +2081,7 @@ function MenuBar({
 
   return (
     <div
-      className="border-b border-solid border-gray-300 flex items-start gap-x-2"
+      className="sticky top-0 z-20 border-b border-solid border-gray-300 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 flex items-start gap-x-2"
       role="menu"
     >
       <div className="pb-2 flex flex-wrap gap-2">
@@ -2227,6 +2271,46 @@ function MenuBar({
             },
           ]}
         />
+        <MenuBarButtonGroup
+          buttons={[
+            {
+              title: 'Insert table',
+              label: <span className="text-xs font-semibold">Tbl+</span>,
+              disabled: disabled || !editor.can().insertTable(),
+              onClick() {
+                editor
+                  .chain()
+                  .focus()
+                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                  .run()
+              },
+            },
+            {
+              title: 'Add table row',
+              label: <span className="text-xs font-semibold">Row+</span>,
+              disabled: disabled || !editor.can().addRowAfter(),
+              onClick() {
+                editor.chain().focus().addRowAfter().run()
+              },
+            },
+            {
+              title: 'Add table column',
+              label: <span className="text-xs font-semibold">Col+</span>,
+              disabled: disabled || !editor.can().addColumnAfter(),
+              onClick() {
+                editor.chain().focus().addColumnAfter().run()
+              },
+            },
+            {
+              title: 'Delete table',
+              label: <span className="text-xs font-semibold">Tbl-</span>,
+              disabled: disabled || !editor.can().deleteTable(),
+              onClick() {
+                editor.chain().focus().deleteTable().run()
+              },
+            },
+          ]}
+        />
         <div className="relative">
           <MenuBarButtonGroup
             buttons={[
@@ -2249,6 +2333,22 @@ function MenuBar({
             </div>
           )}
         </div>
+        <MenuBarButtonGroup
+          buttons={[
+            {
+              title: 'Add FAQ',
+              label: <span className="text-xs font-semibold">❓</span>,
+              disabled: disabled || !editor.can().setFaq(),
+              onClick() {
+                editor
+                  .chain()
+                  .focus()
+                  .setFaq([{ question: '', answer: '' }])
+                  .run()
+              },
+            },
+          ]}
+        />
         <MenuBarButtonGroup
           buttons={[
             {
@@ -2327,7 +2427,7 @@ function MenuBar({
           buttons={[
             {
               title: 'Add gallery...',
-              label: <span className="text-xs font-semibold">G</span>,
+              label: <MoreIcon className="w-4 h-4" />,
               disabled: disabled || !canAddGallery,
               onClick: onAddGallery,
             },
@@ -2451,7 +2551,10 @@ async function uploadFiles(
   return urls.map(url => url.downloadUrl)
 }
 
-function isUrlAllowed(url: string, allowedProtocols: string[] = ['http', 'https']) {
+function isUrlAllowed(
+  url: string,
+  allowedProtocols: string[] = ['http', 'https']
+) {
   try {
     const parsed = new URL(url)
     return allowedProtocols.includes(parsed.protocol.replace(':', ''))
@@ -2477,7 +2580,9 @@ function ImageInsertModal({
   ) => Promise<{ uploadUrl: string; downloadUrl: string }[] | undefined>
   onInsert: (src: string) => void
 }) {
-  const [mode, setMode] = useState<'upload' | 'url'>(allowUpload ? 'upload' : 'url')
+  const [mode, setMode] = useState<'upload' | 'url'>(
+    allowUpload ? 'upload' : 'url'
+  )
   const [files, setFiles] = useState<File[]>([])
   const [currentStep, setCurrentStep] = useState<UploadStep>('default')
   const [urlValue, setUrlValue] = useState('')
@@ -2527,7 +2632,11 @@ function ImageInsertModal({
   }
 
   return (
-    <IVDialog dialog={dialog} title="Insert image" widthClassName="sm:max-w-xl sm:w-full">
+    <IVDialog
+      dialog={dialog}
+      title="Insert image"
+      widthClassName="sm:max-w-xl sm:w-full"
+    >
       <div className="space-y-3">
         {allowUpload && allowUrl && (
           <div className="flex gap-2">
@@ -2575,7 +2684,9 @@ function ImageInsertModal({
         ) : (
           <>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Image URL</span>
+              <span className="text-sm font-medium text-gray-700">
+                Image URL
+              </span>
               <input
                 type="url"
                 value={urlValue}
@@ -2585,7 +2696,11 @@ function ImageInsertModal({
               />
             </label>
             <div className="flex justify-end">
-              <IVButton label="Insert image" disabled={!urlValue} onClick={insertUrlImage} />
+              <IVButton
+                label="Insert image"
+                disabled={!urlValue}
+                onClick={insertUrlImage}
+              />
             </div>
           </>
         )}
@@ -2621,7 +2736,11 @@ function VideoInsertModal({
   }, [defaultAspectRatio, dialog.visible])
 
   return (
-    <IVDialog dialog={dialog} title="Insert video" widthClassName="sm:max-w-lg sm:w-full">
+    <IVDialog
+      dialog={dialog}
+      title="Insert video"
+      widthClassName="sm:max-w-lg sm:w-full"
+    >
       <div className="space-y-4">
         <label className="block">
           <span className="text-sm font-medium text-gray-700">YouTube URL</span>
@@ -2634,11 +2753,15 @@ function VideoInsertModal({
           />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Aspect ratio</span>
+          <span className="text-sm font-medium text-gray-700">
+            Aspect ratio
+          </span>
           <select
             className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             value={aspectRatio}
-            onChange={event => setAspectRatio(event.target.value as VideoAspectRatio)}
+            onChange={event =>
+              setAspectRatio(event.target.value as VideoAspectRatio)
+            }
           >
             {options.map(option => (
               <option key={option} value={option}>
@@ -2647,7 +2770,10 @@ function VideoInsertModal({
             ))}
           </select>
         </label>
-        <div className="iv-video-frame" style={{ aspectRatio: toAspectRatioString(aspectRatio) }}>
+        <div
+          className="iv-video-frame"
+          style={{ aspectRatio: toAspectRatioString(aspectRatio) }}
+        >
           <div className="flex items-center justify-center h-full text-xs text-gray-500 bg-gray-100">
             Video preview ({aspectRatio})
           </div>
@@ -2684,13 +2810,17 @@ function GalleryInsertModal({
   ) => Promise<{ uploadUrl: string; downloadUrl: string }[] | undefined>
   onInsert: (layout: GalleryLayout, items: GalleryItem[]) => void
 }) {
-  const enabledLayouts = layouts?.length ? layouts : (['grid', 'slider'] as GalleryLayout[])
+  const enabledLayouts = layouts?.length
+    ? layouts
+    : (['grid', 'slider'] as GalleryLayout[])
   const enabledItemSources = itemSources?.length
     ? itemSources
     : (['image', 'youtube'] as GalleryItemType[])
   const canInsertImages = enabledItemSources.includes('image')
   const canInsertYoutube = enabledItemSources.includes('youtube')
-  const [layout, setLayout] = useState<GalleryLayout>(enabledLayouts[0] ?? 'grid')
+  const [layout, setLayout] = useState<GalleryLayout>(
+    enabledLayouts[0] ?? 'grid'
+  )
   const [items, setItems] = useState<GalleryItem[]>([])
   const [newItemType, setNewItemType] = useState<GalleryItemType>(
     enabledItemSources[0] ?? 'image'
@@ -2740,10 +2870,12 @@ function GalleryInsertModal({
       const uploadedUrls = await uploadFiles(uploadFilesSelection, urls)
       setItems(prev => [
         ...prev,
-        ...uploadedUrls.slice(0, Math.max(0, maxItems - prev.length)).map(src => ({
-          type: 'image' as const,
-          src,
-        })),
+        ...uploadedUrls
+          .slice(0, Math.max(0, maxItems - prev.length))
+          .map(src => ({
+            type: 'image' as const,
+            src,
+          })),
       ])
       setUploadStep('success')
       setUploadFilesSelection([])
@@ -2754,7 +2886,11 @@ function GalleryInsertModal({
   }
 
   return (
-    <IVDialog dialog={dialog} title="Insert gallery" widthClassName="sm:max-w-3xl sm:w-full">
+    <IVDialog
+      dialog={dialog}
+      title="Insert gallery"
+      widthClassName="sm:max-w-3xl sm:w-full"
+    >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
@@ -2835,7 +2971,9 @@ function GalleryInsertModal({
             <div className="flex justify-end">
               <IVButton
                 label="Upload and add"
-                disabled={!uploadFilesSelection.length || items.length >= maxItems}
+                disabled={
+                  !uploadFilesSelection.length || items.length >= maxItems
+                }
                 loading={uploadStep === 'uploading'}
                 onClick={addUploadedImages}
               />
@@ -2853,18 +2991,26 @@ function GalleryInsertModal({
           >
             {items.map((item, index) =>
               item.type === 'youtube' ? (
-                <div key={`${item.src}-${index}`} className="iv-gallery-item iv-gallery-item-video">
+                <div
+                  key={`${item.src}-${index}`}
+                  className="iv-gallery-item iv-gallery-item-video"
+                >
                   <iframe src={getYoutubeEmbedUrl(item.src)} />
                 </div>
               ) : (
-                <figure key={`${item.src}-${index}`} className="iv-gallery-item iv-gallery-item-image">
+                <figure
+                  key={`${item.src}-${index}`}
+                  className="iv-gallery-item iv-gallery-item-image"
+                >
                   <img src={item.src} alt={item.alt ?? ''} />
                 </figure>
               )
             )}
           </div>
           {items.length === 0 && (
-            <p className="text-xs text-gray-500 mt-2">Add items to preview the gallery.</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Add items to preview the gallery.
+            </p>
           )}
         </div>
 
@@ -2940,7 +3086,9 @@ function LinkInsertModal({
   useEffect(() => {
     if (!dialog.visible) {
       setMode(
-        safeAllowedModes.includes(defaultMode) ? defaultMode : safeAllowedModes[0]
+        safeAllowedModes.includes(defaultMode)
+          ? defaultMode
+          : safeAllowedModes[0]
       )
       setUrl('')
       setLabel('')
@@ -2959,7 +3107,9 @@ function LinkInsertModal({
       return value
     } catch (_err) {
       setPreview(null)
-      setWarning('Could not load OpenGraph metadata, falling back to text link.')
+      setWarning(
+        'Could not load OpenGraph metadata, falling back to text link.'
+      )
       return undefined
     }
   }
@@ -2983,7 +3133,11 @@ function LinkInsertModal({
   }
 
   return (
-    <IVDialog dialog={dialog} title="Insert link" widthClassName="sm:max-w-xl sm:w-full">
+    <IVDialog
+      dialog={dialog}
+      title="Insert link"
+      widthClassName="sm:max-w-xl sm:w-full"
+    >
       <div className="space-y-4">
         <div className="flex gap-2 flex-wrap">
           {safeAllowedModes.map(value => (
@@ -3008,20 +3162,26 @@ function LinkInsertModal({
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Label (optional)</span>
+          <span className="text-sm font-medium text-gray-700">
+            Label (optional)
+          </span>
           <input
             type="text"
             value={label}
             onChange={event => setLabel(event.target.value)}
             className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-            placeholder={mode === 'text' ? 'Visible anchor text' : 'Override title'}
+            placeholder={
+              mode === 'text' ? 'Visible anchor text' : 'Override title'
+            }
           />
         </label>
 
         {(mode === 'preview' || mode === 'mention') && preview && (
           <div className="border border-gray-200 rounded-md p-3 text-sm">
             <p className="font-medium text-gray-800">{preview.title}</p>
-            {preview.description && <p className="text-gray-500">{preview.description}</p>}
+            {preview.description && (
+              <p className="text-gray-500">{preview.description}</p>
+            )}
           </div>
         )}
 
@@ -3039,7 +3199,12 @@ function LinkInsertModal({
             />
           )}
           <div className="ml-auto">
-            <IVButton label="Insert link" loading={loading} disabled={!url} onClick={submit} />
+            <IVButton
+              label="Insert link"
+              loading={loading}
+              disabled={!url}
+              onClick={submit}
+            />
           </div>
         </div>
       </div>
