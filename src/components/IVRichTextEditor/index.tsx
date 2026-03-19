@@ -1454,7 +1454,7 @@ export default function IVRichTextEditor({
     <div
       className={classNames(
         className,
-        'p-2 bg-white border rounded-md overflow-hidden w-full min-w-[300px]',
+        'p-2 bg-white border rounded-md w-full min-w-[300px]',
         {
           'border-amber-500': hasError,
           'border-gray-300': !hasError,
@@ -1511,6 +1511,7 @@ export default function IVRichTextEditor({
         ) : null}
       </div>
       <CalloutClickHandler editor={editor} />
+      <FaqClickHandler editor={editor} disabled={!!disabled} />
       <MentionClickHandler editor={editor} />
       <ImageInsertModal
         dialog={imageDialog}
@@ -1784,6 +1785,178 @@ function CalloutClickHandler({ editor }: { editor: Editor | null }) {
         initialAttrs={calloutAttrs || undefined}
       />
     </div>
+  )
+}
+
+function FaqClickHandler({
+  editor,
+  disabled,
+}: {
+  editor: Editor | null
+  disabled: boolean
+}) {
+  const dialog = useDialogState({ visible: false, modal: true })
+  const [faqItems, setFaqItems] = useState<FaqItem[]>([])
+  const [faqPos, setFaqPos] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!editor) return
+
+    const findFaqNode = (
+      element: HTMLElement
+    ): { pos: number; items: FaqItem[] } | null => {
+      const pos = editor.view.posAtDOM(element, 0)
+      if (pos === null || pos === undefined) return null
+
+      let found: { pos: number; items: FaqItem[] } | null = null
+      editor.state.doc.nodesBetween(
+        Math.max(0, pos - 2),
+        Math.min(editor.state.doc.content.size, pos + 2),
+        (node, nodePos) => {
+          if (node.type.name !== 'faq') return
+          const items = Array.isArray(node.attrs.items)
+            ? (node.attrs.items as FaqItem[])
+            : []
+          found = { pos: nodePos, items }
+          return false
+        }
+      )
+
+      return found
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const faqElement = target.closest('[data-faq]')
+      if (!faqElement) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const found = findFaqNode(faqElement as HTMLElement)
+      if (!found) return
+
+      setFaqPos(found.pos)
+      setFaqItems(
+        found.items.length > 0 ? found.items : [{ question: '', answer: '' }]
+      )
+      editor.chain().focus().setNodeSelection(found.pos).run()
+      dialog.show()
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+    }
+  }, [dialog, editor])
+
+  const updateItem = useCallback(
+    (index: number, key: keyof FaqItem, value: string) => {
+      setFaqItems(current =>
+        current.map((item, i) => (i === index ? { ...item, [key]: value } : item))
+      )
+    },
+    []
+  )
+
+  const addItem = useCallback(() => {
+    setFaqItems(current => [...current, { question: '', answer: '' }])
+  }, [])
+
+  const removeItem = useCallback((index: number) => {
+    setFaqItems(current => {
+      if (current.length <= 1) return [{ question: '', answer: '' }]
+      return current.filter((_item, i) => i !== index)
+    })
+  }, [])
+
+  const saveFaq = useCallback(() => {
+    if (!editor || faqPos === null) return
+
+    const sanitizedItems = faqItems
+      .map(item => ({
+        question: item.question.trim(),
+        answer: item.answer.trim(),
+      }))
+      .filter(item => item.question || item.answer)
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(faqPos)
+      .updateFaq(
+        sanitizedItems.length > 0 ? sanitizedItems : [{ question: '', answer: '' }]
+      )
+      .run()
+
+    dialog.hide()
+  }, [dialog, editor, faqItems, faqPos])
+
+  if (!editor) return null
+
+  return (
+    <IVDialog
+      dialog={dialog}
+      title="Edit FAQ"
+      widthClassName="sm:max-w-3xl sm:w-full"
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-gray-600">
+          Update questions and answers, then save to apply changes in the editor.
+        </p>
+        <div className="space-y-3 max-h-[28rem] overflow-auto pr-1">
+          {faqItems.map((item, index) => (
+            <div
+              key={index}
+              className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-medium text-gray-700">
+                  Question {index + 1}
+                </div>
+                <IVButton
+                  label="Remove"
+                  theme="secondary"
+                  disabled={disabled}
+                  onClick={() => removeItem(index)}
+                />
+              </div>
+              <input
+                type="text"
+                value={item.question}
+                disabled={disabled}
+                onChange={event => updateItem(index, 'question', event.target.value)}
+                placeholder="Question"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+              />
+              <textarea
+                value={item.answer}
+                disabled={disabled}
+                onChange={event => updateItem(index, 'answer', event.target.value)}
+                placeholder="Answer"
+                rows={4}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between">
+          <IVButton
+            label="Add question"
+            theme="secondary"
+            disabled={disabled}
+            onClick={addItem}
+          />
+          <IVButton
+            label="Save FAQ"
+            disabled={disabled}
+            onClick={saveFaq}
+          />
+        </div>
+      </div>
+    </IVDialog>
   )
 }
 
