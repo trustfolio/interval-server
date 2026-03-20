@@ -531,6 +531,30 @@ function cleanUrl(url: string | undefined | null): string {
   return urlMatch ? urlMatch[1] : url
 }
 
+/** Visible mention text: custom displayLabel when set, else canonical label (default). */
+function mentionVisibleText(attrs: {
+  displayLabel?: string | null
+  label?: string | null
+  id?: string | null
+}): string {
+  const custom =
+    attrs.displayLabel != null && String(attrs.displayLabel).trim()
+      ? String(attrs.displayLabel).trim()
+      : ''
+  if (custom) return custom
+  return String(attrs.label ?? attrs.id ?? '')
+}
+
+function mentionDisplayLabelDataAttr(
+  displayLabel: string | null | undefined
+): Record<string, string> {
+  const t =
+    displayLabel != null && String(displayLabel).trim()
+      ? String(displayLabel).trim()
+      : ''
+  return t ? { 'data-mention-display-label': t } : {}
+}
+
 function migrateLegacyYoutubeNodes(editor: Editor): boolean {
   const youtubeNode = editor.schema.nodes.youtube
   const ivVideoNode = editor.schema.nodes.ivVideo
@@ -888,6 +912,13 @@ export default function IVRichTextEditor({
                 element.textContent ||
                 '',
             },
+            displayLabel: {
+              default: null as string | null,
+              parseHTML: element => {
+                const v = element.getAttribute('data-mention-display-label')
+                return v && v.trim() ? v.trim() : null
+              },
+            },
             id: {
               default: '',
               parseHTML: element =>
@@ -919,6 +950,7 @@ export default function IVRichTextEditor({
                 if (variant === 'pill' || variant === 'mega-pill') {
                   return false
                 }
+                const displayRaw = el.getAttribute('data-mention-display-label')
                 const attrs = {
                   type: el.getAttribute('data-mention-type') || '',
                   url: (() => {
@@ -935,6 +967,8 @@ export default function IVRichTextEditor({
                     el.getAttribute('data-mention-label') ||
                     el.textContent ||
                     '',
+                  displayLabel:
+                    displayRaw && displayRaw.trim() ? displayRaw.trim() : null,
                   id: el.getAttribute('data-mention-id') || '',
                   variant: variant || 'inline',
                 }
@@ -964,6 +998,7 @@ export default function IVRichTextEditor({
                 if (!el.hasAttribute('data-mention-type')) {
                   return false
                 }
+                const displayRawB = el.getAttribute('data-mention-display-label')
                 const attrs = {
                   type: el.getAttribute('data-mention-type') || '',
                   url: (() => {
@@ -980,6 +1015,10 @@ export default function IVRichTextEditor({
                     el.getAttribute('data-mention-label') ||
                     el.textContent ||
                     '',
+                  displayLabel:
+                    displayRawB && displayRawB.trim()
+                      ? displayRawB.trim()
+                      : null,
                   id: el.getAttribute('data-mention-id') || '',
                   variant: el.getAttribute('data-mention-variant') || 'inline',
                 }
@@ -1011,10 +1050,11 @@ export default function IVRichTextEditor({
                 'data-mention-label': node.attrs.label,
                 'data-mention-url': node.attrs.url,
                 'data-mention-variant': node.attrs.variant || 'inline',
+                ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               },
               options.HTMLAttributes
             ),
-            `${node.attrs.label ?? node.attrs.id}`,
+            mentionVisibleText(node.attrs),
           ]
         },
         suggestion: mentionSuggestionOptions,
@@ -1043,6 +1083,13 @@ export default function IVRichTextEditor({
                 element.textContent ||
                 '',
             },
+            displayLabel: {
+              default: null as string | null,
+              parseHTML: element => {
+                const v = element.getAttribute('data-mention-display-label')
+                return v && v.trim() ? v.trim() : null
+              },
+            },
             id: {
               default: '',
               parseHTML: element =>
@@ -1061,6 +1108,7 @@ export default function IVRichTextEditor({
               tag: 'div[data-mention-pill]',
               getAttrs: element => {
                 const div = element as HTMLElement
+                const dr = div.getAttribute('data-mention-display-label')
                 return {
                   type: div.getAttribute('data-mention-type') || '',
                   url: div.getAttribute('data-mention-url') || '',
@@ -1068,6 +1116,7 @@ export default function IVRichTextEditor({
                     div.getAttribute('data-mention-label') ||
                     div.textContent ||
                     '',
+                  displayLabel: dr && dr.trim() ? dr.trim() : null,
                   id: div.getAttribute('data-mention-id') || '',
                   variant: div.getAttribute('data-mention-variant') || 'pill',
                 }
@@ -1085,11 +1134,12 @@ export default function IVRichTextEditor({
               'data-mention-label': node.attrs.label,
               'data-mention-url': node.attrs.url,
               'data-mention-variant': 'pill',
+              ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               class: `mention-pill mention-${node.attrs.type}`,
               style:
                 'display: inline-block; padding: 0.5rem 1rem; border-radius: 9999px; margin: 0.25rem 0;',
             },
-            `${node.attrs.label ?? node.attrs.id}`,
+            mentionVisibleText(node.attrs),
           ]
         },
       }),
@@ -1116,6 +1166,13 @@ export default function IVRichTextEditor({
                 element.textContent ||
                 '',
             },
+            displayLabel: {
+              default: null as string | null,
+              parseHTML: element => {
+                const v = element.getAttribute('data-mention-display-label')
+                return v && v.trim() ? v.trim() : null
+              },
+            },
             id: {
               default: '',
               parseHTML: element =>
@@ -1134,6 +1191,7 @@ export default function IVRichTextEditor({
               tag: 'div[data-mention-mega-pill]',
               getAttrs: element => {
                 const div = element as HTMLElement
+                const dr = div.getAttribute('data-mention-display-label')
                 return {
                   type: div.getAttribute('data-mention-type') || '',
                   url: div.getAttribute('data-mention-url') || '',
@@ -1141,6 +1199,7 @@ export default function IVRichTextEditor({
                     div.getAttribute('data-mention-label') ||
                     div.textContent ||
                     '',
+                  displayLabel: dr && dr.trim() ? dr.trim() : null,
                   id: div.getAttribute('data-mention-id') || '',
                   variant:
                     div.getAttribute('data-mention-variant') || 'mega-pill',
@@ -1159,11 +1218,12 @@ export default function IVRichTextEditor({
               'data-mention-label': node.attrs.label,
               'data-mention-url': node.attrs.url,
               'data-mention-variant': 'mega-pill',
+              ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               class: `mention-mega-pill mention-${node.attrs.type}`,
               style:
                 'display: block; padding: 1rem 1.5rem; border-radius: 0.5rem; margin: 0.5rem 0; font-size: 1.125rem;',
             },
-            `${node.attrs.label ?? node.attrs.id}`,
+            mentionVisibleText(node.attrs),
           ]
         },
       }),
@@ -1788,6 +1848,60 @@ function CalloutClickHandler({ editor }: { editor: Editor | null }) {
   )
 }
 
+/** Map a FAQ DOM node to the correct doc position (supports multiple FAQ blocks). */
+function findFaqNodePosition(
+  editor: Editor,
+  element: HTMLElement
+): { pos: number; items: FaqItem[] } | null {
+  const view = editor.view
+  const doc = editor.state.doc
+  const max = doc.content.size
+
+  const itemsFromNode = (node: {
+    attrs: { items?: unknown }
+    type: { name: string }
+  }): FaqItem[] =>
+    Array.isArray(node.attrs.items) ? [...(node.attrs.items as FaqItem[])] : []
+
+  const resolveFaqAtPos = (rawPos: number): { pos: number; items: FaqItem[] } | null => {
+    const pos = Math.min(Math.max(0, rawPos), max)
+    const $pos = doc.resolve(pos)
+
+    for (let d = $pos.depth; d >= 0; d--) {
+      const node = $pos.node(d)
+      if (node.type.name === 'faq') {
+        return { pos: $pos.before(d), items: itemsFromNode(node) }
+      }
+    }
+
+    const after = $pos.nodeAfter
+    if (after?.type.name === 'faq') {
+      return { pos: $pos.pos, items: itemsFromNode(after) }
+    }
+
+    const before = $pos.nodeBefore
+    if (before?.type.name === 'faq') {
+      return { pos: $pos.pos - before.nodeSize, items: itemsFromNode(before) }
+    }
+
+    return null
+  }
+
+  for (const bias of [0, -1, 1] as const) {
+    let rawPos: number
+    try {
+      rawPos = view.posAtDOM(element, bias)
+    } catch {
+      continue
+    }
+    if (rawPos < 0) continue
+    const found = resolveFaqAtPos(rawPos)
+    if (found) return found
+  }
+
+  return null
+}
+
 function FaqClickHandler({
   editor,
   disabled,
@@ -1802,29 +1916,6 @@ function FaqClickHandler({
   useEffect(() => {
     if (!editor) return
 
-    const findFaqNode = (
-      element: HTMLElement
-    ): { pos: number; items: FaqItem[] } | null => {
-      const pos = editor.view.posAtDOM(element, 0)
-      if (pos === null || pos === undefined) return null
-
-      let found: { pos: number; items: FaqItem[] } | null = null
-      editor.state.doc.nodesBetween(
-        Math.max(0, pos - 2),
-        Math.min(editor.state.doc.content.size, pos + 2),
-        (node, nodePos) => {
-          if (node.type.name !== 'faq') return
-          const items = Array.isArray(node.attrs.items)
-            ? (node.attrs.items as FaqItem[])
-            : []
-          found = { pos: nodePos, items }
-          return false
-        }
-      )
-
-      return found
-    }
-
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       const faqElement = target.closest('[data-faq]')
@@ -1833,7 +1924,7 @@ function FaqClickHandler({
       event.preventDefault()
       event.stopPropagation()
 
-      const found = findFaqNode(faqElement as HTMLElement)
+      const found = findFaqNodePosition(editor, faqElement as HTMLElement)
       if (!found) return
 
       setFaqPos(found.pos)
@@ -1894,6 +1985,31 @@ function FaqClickHandler({
     dialog.hide()
   }, [dialog, editor, faqItems, faqPos])
 
+  const deleteFaqBlock = useCallback(() => {
+    if (!editor || faqPos === null || disabled) return
+    const confirmed = window.confirm(
+      'Remove this entire FAQ block from the document?'
+    )
+    if (!confirmed) return
+
+    const node = editor.state.doc.nodeAt(faqPos)
+    if (!node || node.type.name !== 'faq') {
+      dialog.hide()
+      setFaqPos(null)
+      return
+    }
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({ from: faqPos, to: faqPos + node.nodeSize })
+      .run()
+
+    dialog.hide()
+    setFaqPos(null)
+    setFaqItems([])
+  }, [dialog, disabled, editor, faqPos])
+
   if (!editor) return null
 
   return (
@@ -1909,7 +2025,7 @@ function FaqClickHandler({
         <div className="space-y-3 max-h-[28rem] overflow-auto pr-1">
           {faqItems.map((item, index) => (
             <div
-              key={index}
+              key={faqPos !== null ? `faq-${faqPos}-row-${index}` : `faq-row-${index}`}
               className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2"
             >
               <div className="flex items-center justify-between gap-3">
@@ -1942,13 +2058,21 @@ function FaqClickHandler({
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between">
-          <IVButton
-            label="Add question"
-            theme="secondary"
-            disabled={disabled}
-            onClick={addItem}
-          />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <IVButton
+              label="Add question"
+              theme="secondary"
+              disabled={disabled}
+              onClick={addItem}
+            />
+            <IVButton
+              label="Remove FAQ block"
+              theme="danger"
+              disabled={disabled}
+              onClick={deleteFaqBlock}
+            />
+          </div>
           <IVButton
             label="Save FAQ"
             disabled={disabled}
@@ -1974,6 +2098,18 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
     }
     pos: number
   } | null>(null)
+  const [displayLabelDraft, setDisplayLabelDraft] = useState('')
+
+  useEffect(() => {
+    if (!mentionNode) {
+      setDisplayLabelDraft('')
+      return
+    }
+    const v = mentionNode.node.attrs.displayLabel
+    setDisplayLabelDraft(
+      typeof v === 'string' ? v : v != null ? String(v) : ''
+    )
+  }, [mentionNode])
 
   useEffect(() => {
     if (!editor) return
@@ -2102,6 +2238,31 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
     }
   }, [editor])
 
+  const applyDisplayLabel = useCallback(() => {
+    if (!editor || !mentionNode) return
+    const trimmed = displayLabelDraft.trim()
+    const next = trimmed.length > 0 ? trimmed : null
+    const { pos, node } = mentionNode
+    editor
+      .chain()
+      .focus()
+      .command(({ tr }) => {
+        tr.setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          displayLabel: next,
+        })
+        return true
+      })
+      .run()
+    const updated = editor.state.doc.nodeAt(pos)
+    if (updated) {
+      setMentionNode({
+        node: updated as (typeof mentionNode)['node'],
+        pos,
+      })
+    }
+  }, [editor, mentionNode, displayLabelDraft])
+
   const changeVariant = (variant: 'inline' | 'pill' | 'mega-pill') => {
     if (!editor || !mentionNode) return
 
@@ -2111,6 +2272,7 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
       url: node.attrs.url,
       label: node.attrs.label,
       id: node.attrs.id,
+      displayLabel: node.attrs.displayLabel ?? null,
     }
 
     if (variant === 'inline') {
@@ -2160,7 +2322,7 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="mention-variant-menu fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[120px]"
+      className="mention-variant-menu fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-2 min-w-[220px] max-w-[min(100vw-2rem,320px)]"
       style={{
         top: `${menuPosition.top}px`,
         left: `${menuPosition.left}px`,
@@ -2208,6 +2370,29 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
         )}
       >
         Mega Pill
+      </button>
+      <div className="text-xs font-medium text-gray-700 mb-1 mt-3 px-2 pt-2 border-t border-gray-200">
+        Link text (optional)
+      </div>
+      <p className="text-[11px] text-gray-500 px-2 mb-1.5 leading-snug">
+        Override visible text for SEO and grammar. Leave empty to use the
+        default label.
+      </p>
+      <input
+        type="text"
+        className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 mb-2 mx-0.5 box-border"
+        value={displayLabelDraft}
+        onChange={e => setDisplayLabelDraft(e.target.value)}
+        placeholder="Default label"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      />
+      <button
+        type="button"
+        onClick={applyDisplayLabel}
+        className="w-full text-left px-2 py-1.5 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500"
+      >
+        Apply link text
       </button>
     </div>
   )
