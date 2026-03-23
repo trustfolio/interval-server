@@ -44,6 +44,11 @@ import { client as trpcClient } from '~/utils/trpc'
 import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
 import { Callout } from './Callout'
 import CalloutEditor from './CalloutEditor'
+import {
+  BeforeAfter,
+  type BeforeAfterAttrs,
+} from './BeforeAfter'
+import { CTA, type CtaAttrs } from './CTA'
 import { Faq } from './Faq'
 import type { FaqItem } from './Faq'
 import {
@@ -776,6 +781,8 @@ export default function IVRichTextEditor({
   const imageDialog = useDialogState({ visible: false, modal: true })
   const videoDialog = useDialogState({ visible: false, modal: true })
   const galleryDialog = useDialogState({ visible: false, modal: true })
+  const beforeAfterDialog = useDialogState({ visible: false, modal: true })
+  const ctaDialog = useDialogState({ visible: false, modal: true })
   const linkDialog = useDialogState({ visible: false, modal: true })
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>(
     review?.comments ?? []
@@ -881,6 +888,8 @@ export default function IVRichTextEditor({
       LinkMentionChip,
       IVVideo,
       IVGallery,
+      BeforeAfter,
+      CTA,
       Mention.extend({
         addAttributes() {
           return {
@@ -1426,6 +1435,22 @@ export default function IVRichTextEditor({
     [editor]
   )
 
+  const addCta = useCallback(
+    (cta: CtaAttrs) => {
+      if (!editor) return
+      editor.chain().focus().setCta(cta).run()
+    },
+    [editor]
+  )
+
+  const addBeforeAfter = useCallback(
+    (payload: BeforeAfterAttrs) => {
+      if (!editor) return
+      editor.chain().focus().setBeforeAfter(payload).run()
+    },
+    [editor]
+  )
+
   const insertLink = useCallback(
     async (
       mode: LinkInsertMode,
@@ -1534,6 +1559,8 @@ export default function IVRichTextEditor({
         onAddImage={() => imageDialog.show()}
         onAddVideo={() => videoDialog.show()}
         onAddGallery={() => galleryDialog.show()}
+        onAddBeforeAfter={() => beforeAfterDialog.show()}
+        onAddCta={() => ctaDialog.show()}
         onAddLink={() => linkDialog.show()}
       />
       <div
@@ -1572,6 +1599,8 @@ export default function IVRichTextEditor({
       </div>
       <CalloutClickHandler editor={editor} />
       <FaqClickHandler editor={editor} disabled={!!disabled} />
+      <BeforeAfterClickHandler editor={editor} disabled={!!disabled} />
+      <CtaClickHandler editor={editor} disabled={!!disabled} />
       <MentionClickHandler editor={editor} />
       <ImageInsertModal
         dialog={imageDialog}
@@ -1598,6 +1627,11 @@ export default function IVRichTextEditor({
         resolveUploadUrls={resolveUploadUrls}
         onInsert={addGallery}
       />
+      <BeforeAfterInsertModal
+        dialog={beforeAfterDialog}
+        onInsert={addBeforeAfter}
+      />
+      <CTAInsertModal dialog={ctaDialog} onInsert={addCta} />
       <LinkInsertModal
         dialog={linkDialog}
         linksConfig={links}
@@ -2084,6 +2118,510 @@ function FaqClickHandler({
   )
 }
 
+/** Map a Before/After DOM node to the correct doc position (supports multiple blocks). */
+function findBeforeAfterNodePosition(
+  editor: Editor,
+  element: HTMLElement
+): { pos: number; attrs: BeforeAfterAttrs } | null {
+  const view = editor.view
+  const doc = editor.state.doc
+  const max = doc.content.size
+
+  const normalizeBeforeAfterItems = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return []
+    return value
+      .map(item => {
+        if (typeof item === 'string') return item.trim()
+        if (item && typeof item === 'object') {
+          const obj = item as Record<string, unknown>
+          if (typeof obj.text === 'string') return obj.text.trim()
+          if (typeof obj.value === 'string') return obj.value.trim()
+          if (typeof obj.label === 'string') return obj.label.trim()
+        }
+        return ''
+      })
+      .filter(Boolean)
+  }
+
+  const attrsFromNode = (node: {
+    attrs: {
+      leftTitle?: unknown
+      rightTitle?: unknown
+      leftItems?: unknown
+      rightItems?: unknown
+    }
+    type: { name: string }
+  }): BeforeAfterAttrs => ({
+    leftTitle:
+      typeof node.attrs.leftTitle === 'string' ? node.attrs.leftTitle : 'Avant',
+    rightTitle:
+      typeof node.attrs.rightTitle === 'string' ? node.attrs.rightTitle : 'Après',
+    leftItems: normalizeBeforeAfterItems(node.attrs.leftItems),
+    rightItems: normalizeBeforeAfterItems(node.attrs.rightItems),
+  })
+
+  const resolveBeforeAfterAtPos = (rawPos: number): { pos: number; attrs: BeforeAfterAttrs } | null => {
+    const pos = Math.min(Math.max(0, rawPos), max)
+    const $pos = doc.resolve(pos)
+
+    for (let d = $pos.depth; d >= 0; d--) {
+      const node = $pos.node(d)
+      if (node.type.name === 'beforeAfter') {
+        return { pos: $pos.before(d), attrs: attrsFromNode(node) }
+      }
+    }
+
+    const after = $pos.nodeAfter
+    if (after?.type.name === 'beforeAfter') {
+      return { pos: $pos.pos, attrs: attrsFromNode(after) }
+    }
+
+    const before = $pos.nodeBefore
+    if (before?.type.name === 'beforeAfter') {
+      return { pos: $pos.pos - before.nodeSize, attrs: attrsFromNode(before) }
+    }
+
+    return null
+  }
+
+  for (const bias of [0, -1, 1] as const) {
+    let rawPos: number
+    try {
+      rawPos = view.posAtDOM(element, bias)
+    } catch {
+      continue
+    }
+    if (rawPos < 0) continue
+    const found = resolveBeforeAfterAtPos(rawPos)
+    if (found) return found
+  }
+
+  return null
+}
+
+function BeforeAfterClickHandler({
+  editor,
+  disabled,
+}: {
+  editor: Editor | null
+  disabled: boolean
+}) {
+  const dialog = useDialogState({ visible: false, modal: true })
+  const [nodePos, setNodePos] = useState<number | null>(null)
+  const [leftTitle, setLeftTitle] = useState('Avant')
+  const [rightTitle, setRightTitle] = useState('Après')
+  const [leftItemsText, setLeftItemsText] = useState('')
+  const [rightItemsText, setRightItemsText] = useState('')
+
+  useEffect(() => {
+    if (!editor) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const beforeAfterElement = target.closest('[data-before-after]')
+      if (!beforeAfterElement) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const found = findBeforeAfterNodePosition(editor, beforeAfterElement as HTMLElement)
+      if (!found) return
+
+      setNodePos(found.pos)
+      setLeftTitle(found.attrs.leftTitle || 'Avant')
+      setRightTitle(found.attrs.rightTitle || 'Après')
+      setLeftItemsText((found.attrs.leftItems || []).join('\n'))
+      setRightItemsText((found.attrs.rightItems || []).join('\n'))
+      editor.chain().focus().setNodeSelection(found.pos).run()
+      dialog.show()
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+    }
+  }, [dialog, editor])
+
+  const parseLines = useCallback(
+    (value: string) =>
+      value
+        .split('\n')
+        .map(item => item.trim())
+        .filter(Boolean),
+    []
+  )
+
+  const saveBlock = useCallback(() => {
+    if (!editor || nodePos === null) return
+    const sanitizedLeft = parseLines(leftItemsText)
+    const sanitizedRight = parseLines(rightItemsText)
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(nodePos)
+      .updateBeforeAfter({
+        leftTitle: leftTitle.trim() || 'Avant',
+        rightTitle: rightTitle.trim() || 'Après',
+        leftItems: sanitizedLeft,
+        rightItems: sanitizedRight,
+      })
+      .run()
+
+    dialog.hide()
+  }, [dialog, editor, leftItemsText, leftTitle, nodePos, parseLines, rightItemsText, rightTitle])
+
+  const deleteBlock = useCallback(() => {
+    if (!editor || nodePos === null || disabled) return
+    const confirmed = window.confirm(
+      'Remove this entire Before/After block from the document?'
+    )
+    if (!confirmed) return
+
+    const node = editor.state.doc.nodeAt(nodePos)
+    if (!node || node.type.name !== 'beforeAfter') {
+      dialog.hide()
+      setNodePos(null)
+      return
+    }
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({ from: nodePos, to: nodePos + node.nodeSize })
+      .run()
+
+    dialog.hide()
+    setNodePos(null)
+  }, [dialog, disabled, editor, nodePos])
+
+  if (!editor) return null
+
+  return (
+    <IVDialog
+      dialog={dialog}
+      title="Edit Before / After"
+      widthClassName="sm:max-w-2xl sm:w-full"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Left title</span>
+            <input
+              type="text"
+              value={leftTitle}
+              disabled={disabled}
+              onChange={event => setLeftTitle(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Right title</span>
+            <input
+              type="text"
+              value={rightTitle}
+              disabled={disabled}
+              onChange={event => setRightTitle(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              Left items (one per line)
+            </span>
+            <textarea
+              value={leftItemsText}
+              disabled={disabled}
+              onChange={event => setLeftItemsText(event.target.value)}
+              rows={8}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              Right items (one per line)
+            </span>
+            <textarea
+              value={rightItemsText}
+              disabled={disabled}
+              onChange={event => setRightItemsText(event.target.value)}
+              rows={8}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <IVButton
+            label="Remove block"
+            theme="danger"
+            disabled={disabled}
+            onClick={deleteBlock}
+          />
+          <IVButton
+            label="Save block"
+            disabled={disabled}
+            onClick={saveBlock}
+          />
+        </div>
+      </div>
+    </IVDialog>
+  )
+}
+
+/** Map a CTA DOM node to the correct doc position (supports multiple blocks). */
+function findCtaNodePosition(
+  editor: Editor,
+  element: HTMLElement
+): { pos: number; attrs: CtaAttrs } | null {
+  const view = editor.view
+  const doc = editor.state.doc
+  const max = doc.content.size
+
+  const attrsFromNode = (node: {
+    attrs: {
+      title?: unknown
+      description?: unknown
+      buttonText?: unknown
+      buttonLink?: unknown
+      buttonObfuscated?: unknown
+    }
+    type: { name: string }
+  }): CtaAttrs => ({
+    title:
+      typeof node.attrs.title === 'string'
+        ? node.attrs.title
+        : 'Ready to take action?',
+    description:
+      typeof node.attrs.description === 'string' ? node.attrs.description : '',
+    buttonText:
+      typeof node.attrs.buttonText === 'string'
+        ? node.attrs.buttonText
+        : 'Learn more',
+    buttonLink:
+      typeof node.attrs.buttonLink === 'string' ? node.attrs.buttonLink : '',
+    buttonObfuscated:
+      typeof node.attrs.buttonObfuscated === 'boolean'
+        ? node.attrs.buttonObfuscated
+        : false,
+  })
+
+  const resolveCtaAtPos = (rawPos: number): { pos: number; attrs: CtaAttrs } | null => {
+    const pos = Math.min(Math.max(0, rawPos), max)
+    const $pos = doc.resolve(pos)
+
+    for (let d = $pos.depth; d >= 0; d--) {
+      const node = $pos.node(d)
+      if (node.type.name === 'cta') {
+        return { pos: $pos.before(d), attrs: attrsFromNode(node) }
+      }
+    }
+
+    const after = $pos.nodeAfter
+    if (after?.type.name === 'cta') {
+      return { pos: $pos.pos, attrs: attrsFromNode(after) }
+    }
+
+    const before = $pos.nodeBefore
+    if (before?.type.name === 'cta') {
+      return { pos: $pos.pos - before.nodeSize, attrs: attrsFromNode(before) }
+    }
+
+    return null
+  }
+
+  for (const bias of [0, -1, 1] as const) {
+    let rawPos: number
+    try {
+      rawPos = view.posAtDOM(element, bias)
+    } catch {
+      continue
+    }
+    if (rawPos < 0) continue
+    const found = resolveCtaAtPos(rawPos)
+    if (found) return found
+  }
+
+  return null
+}
+
+function CtaClickHandler({
+  editor,
+  disabled,
+}: {
+  editor: Editor | null
+  disabled: boolean
+}) {
+  const dialog = useDialogState({ visible: false, modal: true })
+  const [nodePos, setNodePos] = useState<number | null>(null)
+  const [title, setTitle] = useState('Ready to take action?')
+  const [description, setDescription] = useState('')
+  const [buttonText, setButtonText] = useState('Learn more')
+  const [buttonLink, setButtonLink] = useState('')
+  const [buttonObfuscated, setButtonObfuscated] = useState(false)
+
+  useEffect(() => {
+    if (!editor) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const ctaElement = target.closest('[data-cta]')
+      if (!ctaElement) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const found = findCtaNodePosition(editor, ctaElement as HTMLElement)
+      if (!found) return
+
+      setNodePos(found.pos)
+      setTitle(found.attrs.title || 'Ready to take action?')
+      setDescription(found.attrs.description || '')
+      setButtonText(found.attrs.buttonText || 'Learn more')
+      setButtonLink(found.attrs.buttonLink || '')
+      setButtonObfuscated(!!found.attrs.buttonObfuscated)
+      editor.chain().focus().setNodeSelection(found.pos).run()
+      dialog.show()
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+    }
+  }, [dialog, editor])
+
+  const saveBlock = useCallback(() => {
+    if (!editor || nodePos === null) return
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(nodePos)
+      .updateCta({
+        title: title.trim() || 'Ready to take action?',
+        description: description.trim(),
+        buttonText: buttonText.trim() || 'Learn more',
+        buttonLink: buttonLink.trim(),
+        buttonObfuscated,
+      })
+      .run()
+
+    dialog.hide()
+  }, [buttonLink, buttonObfuscated, buttonText, description, dialog, editor, nodePos, title])
+
+  const deleteBlock = useCallback(() => {
+    if (!editor || nodePos === null || disabled) return
+    const confirmed = window.confirm('Remove this CTA block from the document?')
+    if (!confirmed) return
+
+    const node = editor.state.doc.nodeAt(nodePos)
+    if (!node || node.type.name !== 'cta') {
+      dialog.hide()
+      setNodePos(null)
+      return
+    }
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({ from: nodePos, to: nodePos + node.nodeSize })
+      .run()
+
+    dialog.hide()
+    setNodePos(null)
+  }, [dialog, disabled, editor, nodePos])
+
+  if (!editor) return null
+
+  return (
+    <IVDialog
+      dialog={dialog}
+      title="Edit CTA"
+      widthClassName="sm:max-w-xl sm:w-full"
+    >
+      <div className="space-y-4">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Title</span>
+          <input
+            type="text"
+            value={title}
+            disabled={disabled}
+            onChange={event => setTitle(event.target.value)}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">
+            Description (optional)
+          </span>
+          <textarea
+            value={description}
+            disabled={disabled}
+            onChange={event => setDescription(event.target.value)}
+            rows={4}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          />
+        </label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Button text</span>
+            <input
+              type="text"
+              value={buttonText}
+              disabled={disabled}
+              onChange={event => setButtonText(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Button link</span>
+            <input
+              type="url"
+              value={buttonLink}
+              disabled={disabled}
+              onChange={event => setButtonLink(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={buttonObfuscated}
+            disabled={disabled}
+            onChange={event => setButtonObfuscated(event.target.checked)}
+          />
+          <span className="text-sm text-gray-700">Obfuscate button link</span>
+        </label>
+
+        <div className="flex items-center justify-between gap-2">
+          <IVButton
+            label="Remove block"
+            theme="danger"
+            disabled={disabled}
+            onClick={deleteBlock}
+          />
+          <IVButton
+            label="Save CTA"
+            disabled={disabled || !buttonText.trim() || !buttonLink.trim()}
+            onClick={saveBlock}
+          />
+        </div>
+      </div>
+    </IVDialog>
+  )
+}
+
 function MentionClickHandler({ editor }: { editor: Editor | null }) {
   const [showMenu, setShowMenu] = useState(false)
   const [menuPosition, setMenuPosition] = useState<{
@@ -2408,6 +2946,8 @@ function MenuBar({
   onAddImage,
   onAddVideo,
   onAddGallery,
+  onAddBeforeAfter,
+  onAddCta,
   onAddLink,
 }: {
   editor: Editor | null
@@ -2419,6 +2959,8 @@ function MenuBar({
   onAddImage: () => void
   onAddVideo: () => void
   onAddGallery: () => void
+  onAddBeforeAfter: () => void
+  onAddCta: () => void
   onAddLink: () => void
 }) {
   const [headingLevel, setHeadingLevel] = useState(0)
@@ -2714,6 +3256,18 @@ function MenuBar({
         />
         <MenuBarButtonGroup
           buttons={[
+            {
+              title: 'Add Before / After',
+              label: <span className="text-[11px] font-semibold">B/A</span>,
+              disabled: disabled || !editor.can().setBeforeAfter(),
+              onClick: onAddBeforeAfter,
+            },
+            {
+              title: 'Add CTA',
+              label: <span className="text-[11px] font-semibold">CTA</span>,
+              disabled: disabled || !editor.can().setCta(),
+              onClick: onAddCta,
+            },
             {
               title: 'Add link...',
               label: <LinkIcon className="w-4 h-4" />,
@@ -3389,6 +3943,220 @@ function GalleryInsertModal({
             disabled={items.length === 0}
             onClick={() => {
               onInsert(layout, items)
+              dialog.hide()
+            }}
+          />
+        </div>
+      </div>
+    </IVDialog>
+  )
+}
+
+function BeforeAfterInsertModal({
+  dialog,
+  onInsert,
+}: {
+  dialog: ReturnType<typeof useDialogState>
+  onInsert: (payload: BeforeAfterAttrs) => void
+}) {
+  const [leftTitle, setLeftTitle] = useState('Avant')
+  const [rightTitle, setRightTitle] = useState('Après')
+  const [leftItemsText, setLeftItemsText] = useState('')
+  const [rightItemsText, setRightItemsText] = useState('')
+
+  useEffect(() => {
+    if (!dialog.visible) {
+      setLeftTitle('Avant')
+      setRightTitle('Après')
+      setLeftItemsText('')
+      setRightItemsText('')
+    }
+  }, [dialog.visible])
+
+  const parseLines = (value: string) =>
+    value
+      .split('\n')
+      .map(item => item.trim())
+      .filter(Boolean)
+
+  const leftItems = parseLines(leftItemsText)
+  const rightItems = parseLines(rightItemsText)
+
+  return (
+    <IVDialog
+      dialog={dialog}
+      title="Insert Before / After"
+      widthClassName="sm:max-w-2xl sm:w-full"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Left title</span>
+            <input
+              type="text"
+              value={leftTitle}
+              onChange={event => setLeftTitle(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              placeholder="Avant"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Right title</span>
+            <input
+              type="text"
+              value={rightTitle}
+              onChange={event => setRightTitle(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              placeholder="Après"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              Left items (one per line)
+            </span>
+            <textarea
+              value={leftItemsText}
+              onChange={event => setLeftItemsText(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[160px]"
+              placeholder="Avis clients dispersés&#10;Peu de preuves visibles"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">
+              Right items (one per line)
+            </span>
+            <textarea
+              value={rightItemsText}
+              onChange={event => setRightItemsText(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[160px]"
+              placeholder="Preuves clients centralisées&#10;Témoignages activables"
+            />
+          </label>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          Fixed icons are applied in rendering (X on the left, check on the right).
+        </div>
+
+        <div className="flex justify-end">
+          <IVButton
+            label="Insert block"
+            disabled={leftItems.length === 0 && rightItems.length === 0}
+            onClick={() => {
+              onInsert({
+                leftTitle,
+                rightTitle,
+                leftItems,
+                rightItems,
+              })
+              dialog.hide()
+            }}
+          />
+        </div>
+      </div>
+    </IVDialog>
+  )
+}
+
+function CTAInsertModal({
+  dialog,
+  onInsert,
+}: {
+  dialog: ReturnType<typeof useDialogState>
+  onInsert: (cta: CtaAttrs) => void
+}) {
+  const [title, setTitle] = useState('Ready to take action?')
+  const [description, setDescription] = useState('')
+  const [buttonText, setButtonText] = useState('Learn more')
+  const [buttonLink, setButtonLink] = useState('')
+  const [buttonObfuscated, setButtonObfuscated] = useState(false)
+
+  useEffect(() => {
+    if (!dialog.visible) {
+      setTitle('Ready to take action?')
+      setDescription('')
+      setButtonText('Learn more')
+      setButtonLink('')
+      setButtonObfuscated(false)
+    }
+  }, [dialog.visible])
+
+  return (
+    <IVDialog
+      dialog={dialog}
+      title="Insert CTA"
+      widthClassName="sm:max-w-xl sm:w-full"
+    >
+      <div className="space-y-4">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Title</span>
+          <input
+            type="text"
+            value={title}
+            onChange={event => setTitle(event.target.value)}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            placeholder="Ready to take action?"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">
+            Description (optional)
+          </span>
+          <textarea
+            value={description}
+            onChange={event => setDescription(event.target.value)}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm min-h-[88px]"
+            placeholder="Add context for the call to action..."
+          />
+        </label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Button text</span>
+            <input
+              type="text"
+              value={buttonText}
+              onChange={event => setButtonText(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              placeholder="Learn more"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Button link</span>
+            <input
+              type="url"
+              value={buttonLink}
+              onChange={event => setButtonLink(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              placeholder="https://example.com"
+            />
+          </label>
+          <label className="flex items-center gap-2 pt-6">
+            <input
+              type="checkbox"
+              checked={buttonObfuscated}
+              onChange={event => setButtonObfuscated(event.target.checked)}
+            />
+            <span className="text-sm text-gray-700">Obfuscate button link</span>
+          </label>
+        </div>
+
+        <div className="flex justify-end">
+          <IVButton
+            label="Insert CTA"
+            disabled={!buttonText || !buttonLink}
+            onClick={() => {
+              onInsert({
+                title,
+                description,
+                buttonText,
+                buttonLink,
+                buttonObfuscated,
+              })
               dialog.hide()
             }}
           />
