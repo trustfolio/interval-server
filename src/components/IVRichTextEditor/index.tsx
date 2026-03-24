@@ -796,6 +796,9 @@ export default function IVRichTextEditor({
   const [reviewFilter, setReviewFilter] = useState<
     'pending' | 'resolved' | 'all'
   >('pending')
+  const [liveWordCount, setLiveWordCount] = useState<number>(
+    defaultValue?.wordCount ?? 0
+  )
   const [reviewActionCommentId, setReviewActionCommentId] = useState<
     string | null
   >(null)
@@ -1262,6 +1265,8 @@ export default function IVRichTextEditor({
 
       const mentions = getAllMentions(editor.state.doc)
       const json = editor.getJSON()
+      const words = editor.storage.characterCount?.words?.() ?? 0
+      setLiveWordCount(words)
 
       // Also check the JSON structure for mentions that might not be detected
       const jsonStr = JSON.stringify(json)
@@ -1280,7 +1285,7 @@ export default function IVRichTextEditor({
           html: editor.getHTML(),
           json,
           mentions,
-          wordCount: editor.storage.characterCount?.words?.() ?? undefined,
+          wordCount: words,
         },
         editor.getText()
       )
@@ -1304,6 +1309,11 @@ export default function IVRichTextEditor({
   useEffect(() => {
     editor?.setEditable(!disabled)
   }, [disabled, editor])
+
+  useEffect(() => {
+    if (!editor) return
+    setLiveWordCount(editor.storage.characterCount?.words?.() ?? 0)
+  }, [editor])
 
   useEffect(() => {
     const nextComments = review?.comments ?? []
@@ -1596,6 +1606,9 @@ export default function IVRichTextEditor({
             }
           />
         ) : null}
+      </div>
+      <div className="mt-2 flex justify-end">
+        <span className="text-xs text-gray-500">{liveWordCount} words</span>
       </div>
       <CalloutClickHandler editor={editor} />
       <FaqClickHandler editor={editor} disabled={!!disabled} />
@@ -2137,6 +2150,13 @@ function findBeforeAfterNodePosition(
           if (typeof obj.text === 'string') return obj.text.trim()
           if (typeof obj.value === 'string') return obj.value.trim()
           if (typeof obj.label === 'string') return obj.label.trim()
+          const numericText = Object.keys(obj)
+            .filter(key => /^\d+$/.test(key))
+            .sort((a, b) => Number(a) - Number(b))
+            .map(key => (typeof obj[key] === 'string' ? (obj[key] as string) : ''))
+            .join('')
+            .trim()
+          if (numericText) return numericText
         }
         return ''
       })

@@ -7,8 +7,8 @@ export interface BeforeAfterOptions {
 export interface BeforeAfterAttrs {
   leftTitle?: string
   rightTitle?: string
-  leftItems?: string[]
-  rightItems?: string[]
+  leftItems?: Array<string | Record<string, unknown>>
+  rightItems?: Array<string | Record<string, unknown>>
 }
 
 declare module '@tiptap/core' {
@@ -30,11 +30,21 @@ const normalizeItems = (value: unknown): string[] => {
         if (typeof obj.text === 'string') return obj.text.trim()
         if (typeof obj.value === 'string') return obj.value.trim()
         if (typeof obj.label === 'string') return obj.label.trim()
+        const numericText = Object.keys(obj)
+          .filter(key => /^\d+$/.test(key))
+          .sort((a, b) => Number(a) - Number(b))
+          .map(key => (typeof obj[key] === 'string' ? (obj[key] as string) : ''))
+          .join('')
+          .trim()
+        if (numericText) return numericText
       }
       return ''
     })
     .filter(Boolean)
 }
+
+const toStoredItems = (value: unknown) =>
+  normalizeItems(value).map(text => ({ text }))
 
 const parseItems = (raw: string | null): string[] => {
   if (!raw) return []
@@ -70,14 +80,14 @@ export const BeforeAfter = Node.create<BeforeAfterOptions>({
         parseHTML: element => element.getAttribute('data-before-after-right-title') || 'After',
       },
       leftItems: {
-        default: [] as string[],
+        default: [] as Array<{ text: string }>,
         parseHTML: element =>
-          parseItems(element.getAttribute('data-before-after-left-items')),
+          toStoredItems(parseItems(element.getAttribute('data-before-after-left-items'))),
       },
       rightItems: {
-        default: [] as string[],
+        default: [] as Array<{ text: string }>,
         parseHTML: element =>
-          parseItems(element.getAttribute('data-before-after-right-items')),
+          toStoredItems(parseItems(element.getAttribute('data-before-after-right-items'))),
       },
     }
   },
@@ -163,8 +173,8 @@ export const BeforeAfter = Node.create<BeforeAfterOptions>({
             attrs: {
               leftTitle: options?.leftTitle || 'Before',
               rightTitle: options?.rightTitle || 'After',
-              leftItems: normalizeItems(options?.leftItems || []),
-              rightItems: normalizeItems(options?.rightItems || []),
+              leftItems: toStoredItems(options?.leftItems || []),
+              rightItems: toStoredItems(options?.rightItems || []),
             },
           })
         },
@@ -173,8 +183,8 @@ export const BeforeAfter = Node.create<BeforeAfterOptions>({
         ({ commands }) => {
           return commands.updateAttributes(this.name, {
             ...options,
-            leftItems: normalizeItems(options.leftItems || []),
-            rightItems: normalizeItems(options.rightItems || []),
+            leftItems: toStoredItems(options.leftItems || []),
+            rightItems: toStoredItems(options.rightItems || []),
           })
         },
     }
