@@ -35,6 +35,43 @@
     padding: 0.1rem 0.3rem;
   }
 
+  /* Editor-only: compact kind tag before mention label (tooltip = title on anchor) */
+  .iv-mention-kind-badge {
+    display: inline-block;
+    font-size: 0.62em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin-right: 0.28em;
+    opacity: 0.82;
+    vertical-align: 0.12em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+
+  .iv-mention-kind-badge--pill {
+    font-size: 0.68em;
+    margin-right: 0;
+    padding: 0.12em 0.35em;
+    border-radius: 0.25rem;
+    background: rgba(255, 255, 255, 0.35);
+  }
+
+  .iv-mention-mega-kind {
+    display: block;
+    font-size: 0.58em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.35rem;
+    opacity: 0.85;
+    text-transform: uppercase;
+  }
+
+  .iv-mention-mega-title {
+    display: block;
+  }
+
   .mention-member {
     background-color: #dbeafe;
     color: #1e40af;
@@ -213,6 +250,8 @@
   .iv-video {
     margin: 0.75rem 0;
   }
+
+  /* .iv-video-inner: width / max-width from inline styles (layout) */
 
   .iv-video-frame {
     position: relative;

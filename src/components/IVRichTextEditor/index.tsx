@@ -42,6 +42,10 @@ import MoreIcon from '~/icons/compiled/More'
 import { ShortcutMap, getShortcuts } from '~/utils/usePlatform'
 import { client as trpcClient } from '~/utils/trpc'
 import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
+import {
+  mentionKindAbbrev,
+  mentionKindLabel,
+} from './Mention/mentionKindUi'
 import { Callout } from './Callout'
 import CalloutEditor from './CalloutEditor'
 import {
@@ -61,6 +65,8 @@ import {
 } from './review'
 
 type VideoAspectRatio = 'horizontal' | 'square' | 'vertical'
+type VideoAlign = 'left' | 'center' | 'right'
+type VideoMaxWidth = 'full' | 'lg' | 'md' | 'sm'
 type GalleryLayout = 'grid' | 'slider'
 type GalleryItemType = 'image' | 'youtube'
 type LinkInsertMode = 'text' | 'preview' | 'mention'
@@ -104,22 +110,66 @@ function toAspectRatioString(aspectRatio: VideoAspectRatio): string {
   return VIDEO_ASPECT_RATIO[aspectRatio] ?? VIDEO_ASPECT_RATIO.horizontal
 }
 
+function parseVideoAlignAttr(raw: string | null): VideoAlign {
+  if (raw === 'center' || raw === 'right') return raw
+  return 'left'
+}
+
+function parseVideoMaxWidthAttr(raw: string | null): VideoMaxWidth {
+  if (raw === 'lg' || raw === 'md' || raw === 'sm') return raw
+  return 'full'
+}
+
+function videoShellStyles(
+  align: VideoAlign,
+  maxWidth: VideoMaxWidth
+): { outer: string; inner: string } {
+  const justify =
+    align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start'
+  const maxW =
+    maxWidth === 'lg'
+      ? 'min(100%, 42rem)'
+      : maxWidth === 'md'
+        ? 'min(100%, 28rem)'
+        : maxWidth === 'sm'
+          ? 'min(100%, 18rem)'
+          : ''
+  return {
+    outer: `display:flex;width:100%;justify-content:${justify};`,
+    inner: maxW
+      ? `width:100%;max-width:${maxW};min-width:0;`
+      : 'width:100%;min-width:0;',
+  }
+}
+
 function getYoutubeVideoId(rawUrl: string): string | null {
   try {
-    const url = new URL(rawUrl)
+    const trimmed = rawUrl.trim()
+    if (!trimmed) return null
+    const url = new URL(trimmed)
 
-    if (url.hostname.includes('youtu.be')) {
+    if (url.hostname === 'youtu.be' || url.hostname.endsWith('.youtu.be')) {
       return url.pathname.split('/').filter(Boolean)[0] ?? null
     }
 
-    if (url.hostname.includes('youtube.com')) {
-      if (url.pathname.startsWith('/embed/')) {
-        return url.pathname.replace('/embed/', '').split('/')[0] ?? null
-      }
+    const isYoutubeHost =
+      url.hostname === 'youtube.com' ||
+      url.hostname.endsWith('.youtube.com') ||
+      url.hostname === 'youtube-nocookie.com' ||
+      url.hostname.endsWith('.youtube-nocookie.com')
 
-      const fromQuery = url.searchParams.get('v')
-      if (fromQuery) return fromQuery
-    }
+    if (!isYoutubeHost) return null
+
+    const parts = url.pathname.split('/').filter(Boolean)
+    const head = parts[0]
+    const idFromPath = parts[1]?.split('?')[0] ?? null
+
+    if (head === 'embed' && idFromPath) return idFromPath
+    if (head === 'shorts' && idFromPath) return idFromPath
+    if (head === 'live' && idFromPath) return idFromPath
+
+    const fromQuery = url.searchParams.get('v')
+    if (fromQuery) return fromQuery
 
     return null
   } catch (_err) {
@@ -127,10 +177,11 @@ function getYoutubeVideoId(rawUrl: string): string | null {
   }
 }
 
+/** Always use /embed/{id}; never put watch/shorts/home URLs in an iframe (X-Frame-Options). */
 function getYoutubeEmbedUrl(rawUrl: string): string {
   const videoId = getYoutubeVideoId(rawUrl)
-  if (!videoId) return rawUrl
-  return `https://www.youtube.com/embed/${videoId}`
+  if (!videoId) return ''
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}`
 }
 
 function parseGalleryItems(value: string | null): GalleryItem[] {
@@ -340,6 +391,8 @@ const IVVideo = Node.create({
       provider: { default: 'youtube' },
       src: { default: '' },
       aspectRatio: { default: 'horizontal' as VideoAspectRatio },
+      align: { default: 'left' as VideoAlign },
+      maxWidth: { default: 'full' as VideoMaxWidth },
     }
   },
   parseHTML() {
@@ -348,14 +401,14 @@ const IVVideo = Node.create({
         tag: 'div[data-iv-video]',
         getAttrs: element => {
           const el = element as HTMLElement
+          const ar = el.getAttribute('data-aspect-ratio')
           return {
             provider: el.getAttribute('data-provider') ?? 'youtube',
             src: el.getAttribute('data-src') ?? '',
             aspectRatio:
-              el.getAttribute('data-aspect-ratio') === 'square' ||
-              el.getAttribute('data-aspect-ratio') === 'vertical'
-                ? el.getAttribute('data-aspect-ratio')
-                : 'horizontal',
+              ar === 'square' || ar === 'vertical' ? ar : 'horizontal',
+            align: parseVideoAlignAttr(el.getAttribute('data-align')),
+            maxWidth: parseVideoMaxWidthAttr(el.getAttribute('data-max-width')),
           }
         },
       },
@@ -369,6 +422,8 @@ const IVVideo = Node.create({
             provider: 'youtube',
             src: el.getAttribute('src') ?? '',
             aspectRatio: inferAspectRatioFromDimensions(width, height),
+            align: 'left' as VideoAlign,
+            maxWidth: 'full' as VideoMaxWidth,
           }
         },
       },
@@ -380,6 +435,9 @@ const IVVideo = Node.create({
       node.attrs.aspectRatio === 'vertical'
         ? node.attrs.aspectRatio
         : 'horizontal'
+    const align = parseVideoAlignAttr(node.attrs.align ?? null)
+    const maxWidth = parseVideoMaxWidthAttr(node.attrs.maxWidth ?? null)
+    const { outer, inner } = videoShellStyles(align, maxWidth)
 
     return [
       'div',
@@ -388,22 +446,29 @@ const IVVideo = Node.create({
         'data-provider': node.attrs.provider,
         'data-src': node.attrs.src,
         'data-aspect-ratio': aspectRatio,
+        'data-align': align,
+        'data-max-width': maxWidth,
         class: 'iv-video',
+        style: outer,
       }),
       [
         'div',
-        {
-          class: 'iv-video-frame',
-          style: `aspect-ratio: ${toAspectRatioString(aspectRatio)};`,
-        },
+        { class: 'iv-video-inner', style: inner },
         [
-          'iframe',
+          'div',
           {
-            src: getYoutubeEmbedUrl(node.attrs.src),
-            allowfullscreen: 'true',
-            frameborder: '0',
-            loading: 'lazy',
+            class: 'iv-video-frame',
+            style: `aspect-ratio: ${toAspectRatioString(aspectRatio)};`,
           },
+          [
+            'iframe',
+            {
+              src: getYoutubeEmbedUrl(node.attrs.src),
+              allowfullscreen: 'true',
+              frameborder: '0',
+              loading: 'lazy',
+            },
+          ],
         ],
       ],
     ]
@@ -560,6 +625,18 @@ function mentionDisplayLabelDataAttr(
   return t ? { 'data-mention-display-label': t } : {}
 }
 
+function mentionEditorTooltip(attrs: {
+  type?: string | null
+  id?: string | null
+  label?: string | null
+  displayLabel?: string | null
+}): string {
+  const kind = mentionKindLabel(attrs.type)
+  const name = mentionVisibleText(attrs)
+  const id = attrs.id?.trim()
+  return id ? `${kind} — ${name} · id ${id}` : `${kind} — ${name}`
+}
+
 function migrateLegacyYoutubeNodes(editor: Editor): boolean {
   const youtubeNode = editor.schema.nodes.youtube
   const ivVideoNode = editor.schema.nodes.ivVideo
@@ -600,6 +677,8 @@ function migrateLegacyYoutubeNodes(editor: Editor): boolean {
             provider: 'youtube',
             src: replacement.src,
             aspectRatio: replacement.aspectRatio,
+            align: 'left',
+            maxWidth: 'full',
           })
         )
       }
@@ -614,68 +693,15 @@ function migrateLegacyYoutubeNodes(editor: Editor): boolean {
 function getAllMentions(doc: any): Array<any> {
   const result: Array<any> = []
   const mentionTypes = ['mention', 'mentionPill', 'mentionMegaPill']
-  const allNodeTypes: Record<string, number> = {}
 
-  // First pass: count all node types to understand document structure
   doc.descendants(node => {
     const nodeType = node.type.name
-    allNodeTypes[nodeType] = (allNodeTypes[nodeType] || 0) + 1
-  })
-
-  // eslint-disable-next-line no-console
-  console.log(
-    '[IVRichTextEditor] getAllMentions: all node types in document',
-    allNodeTypes
-  )
-
-  // Second pass: collect mentions and log potential mentions
-  doc.descendants((node, pos) => {
-    const nodeType = node.type.name
-
-    // Check if this is a link node that might actually be a mention
-    // (TipTap might parse mentions as links if Link extension parses first)
-    if (nodeType === 'link' && node.attrs.href) {
-      // Check if the link has mention attributes in the HTML
-      // We need to check the actual HTML element to see if it has data-mention-* attributes
-      // But we can't access the DOM from here, so we check the JSON structure
-      // If the link has a class that suggests it's a mention, we should treat it as one
-      const href = node.attrs.href
-      // eslint-disable-next-line no-console
-      console.log('[IVRichTextEditor] getAllMentions: found link node', {
-        nodeType,
-        pos,
-        href,
-        attrs: node.attrs,
-        textContent: node.textContent?.substring(0, 50),
-      })
-    }
-
-    // Log all nodes that might be mentions (for debugging)
-    if (
-      nodeType === 'mention' ||
-      nodeType === 'mentionPill' ||
-      nodeType === 'mentionMegaPill' ||
-      nodeType === 'link' ||
-      (nodeType === 'text' &&
-        node.marks?.some((m: any) => m.type.name === 'mention'))
-    ) {
-      // eslint-disable-next-line no-console
-      console.log('[IVRichTextEditor] getAllMentions: potential mention node', {
-        nodeType,
-        pos,
-        attrs: node.attrs,
-        marks: node.marks?.map((m: any) => m.type.name),
-        textContent: node.textContent?.substring(0, 50),
-      })
-    }
 
     if (mentionTypes.includes(nodeType)) {
-      // Clean the URL attribute to ensure it doesn't contain HTML
       const attrs = { ...node.attrs }
       if (attrs.url) {
         attrs.url = cleanUrl(attrs.url)
       }
-      // Ensure variant is set correctly based on node type if not already set
       if (!attrs.variant) {
         if (nodeType === 'mentionPill') {
           attrs.variant = 'pill'
@@ -686,22 +712,9 @@ function getAllMentions(doc: any): Array<any> {
         }
       }
 
-      // Debug log for each mention node found in the document
-      // Useful to understand what TipTap has parsed at load time (including existing HTML)
-      // eslint-disable-next-line no-console
-      console.log('[IVRichTextEditor] getAllMentions: found mention node', {
-        nodeType: node.type.name,
-        pos,
-        attrs,
-      })
-
       result.push(attrs)
     }
   })
-
-  // Global debug log of all mentions extracted from the document
-  // eslint-disable-next-line no-console
-  console.log('[IVRichTextEditor] getAllMentions: final result', result)
 
   return result
 }
@@ -863,15 +876,6 @@ export default function IVRichTextEditor({
     return preview as LinkPreviewMetadata
   }, [])
 
-  // Log the initial content to debug mention parsing
-  // eslint-disable-next-line no-console
-  console.log('[IVRichTextEditor] Initial content', {
-    hasJson: !!defaultValue?.json,
-    hasHtml: !!defaultValue?.html,
-    htmlPreview: defaultValue?.html?.substring(0, 500),
-    mentionsInDefaultValue: defaultValue?.mentions,
-  })
-
   const editor = useEditor({
     content: defaultValue?.json || defaultValue?.html,
     editable: !disabled,
@@ -985,14 +989,6 @@ export default function IVRichTextEditor({
                   id: el.getAttribute('data-mention-id') || '',
                   variant: variant || 'inline',
                 }
-                // eslint-disable-next-line no-console
-                console.log(
-                  '[IVRichTextEditor] Mention.parseHTML a[data-mention-type]',
-                  {
-                    outerHTML: el.outerHTML,
-                    attrs,
-                  }
-                )
                 return attrs
               },
             },
@@ -1035,11 +1031,6 @@ export default function IVRichTextEditor({
                   id: el.getAttribute('data-mention-id') || '',
                   variant: el.getAttribute('data-mention-variant') || 'inline',
                 }
-                // eslint-disable-next-line no-console
-                console.log('[IVRichTextEditor] Mention.parseHTML a.mention', {
-                  outerHTML: el.outerHTML,
-                  attrs,
-                })
                 return attrs
               },
             },
@@ -1063,10 +1054,19 @@ export default function IVRichTextEditor({
                 'data-mention-label': node.attrs.label,
                 'data-mention-url': node.attrs.url,
                 'data-mention-variant': node.attrs.variant || 'inline',
+                title: mentionEditorTooltip(node.attrs),
                 ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               },
               options.HTMLAttributes
             ),
+            [
+              'span',
+              {
+                class: 'iv-mention-kind-badge',
+                'aria-hidden': 'true',
+              },
+              mentionKindAbbrev(node.attrs.type),
+            ],
             mentionVisibleText(node.attrs),
           ]
         },
@@ -1147,11 +1147,20 @@ export default function IVRichTextEditor({
               'data-mention-label': node.attrs.label,
               'data-mention-url': node.attrs.url,
               'data-mention-variant': 'pill',
+              title: mentionEditorTooltip(node.attrs),
               ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               class: `mention-pill mention-${node.attrs.type}`,
               style:
-                'display: inline-block; padding: 0.5rem 1rem; border-radius: 9999px; margin: 0.25rem 0;',
+                'display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 1rem; border-radius: 9999px; margin: 0.25rem 0;',
             },
+            [
+              'span',
+              {
+                class: 'iv-mention-kind-badge iv-mention-kind-badge--pill',
+                'aria-hidden': 'true',
+              },
+              mentionKindAbbrev(node.attrs.type),
+            ],
             mentionVisibleText(node.attrs),
           ]
         },
@@ -1222,6 +1231,7 @@ export default function IVRichTextEditor({
           ]
         },
         renderHTML({ node }) {
+          const kindUpper = mentionKindLabel(node.attrs.type).toUpperCase()
           return [
             'div',
             {
@@ -1231,12 +1241,18 @@ export default function IVRichTextEditor({
               'data-mention-label': node.attrs.label,
               'data-mention-url': node.attrs.url,
               'data-mention-variant': 'mega-pill',
+              title: mentionEditorTooltip(node.attrs),
               ...mentionDisplayLabelDataAttr(node.attrs.displayLabel),
               class: `mention-mega-pill mention-${node.attrs.type}`,
               style:
                 'display: block; padding: 1rem 1.5rem; border-radius: 0.5rem; margin: 0.5rem 0; font-size: 1.125rem;',
             },
-            mentionVisibleText(node.attrs),
+            ['span', { class: 'iv-mention-mega-kind' }, kindUpper],
+            [
+              'span',
+              { class: 'iv-mention-mega-title' },
+              mentionVisibleText(node.attrs),
+            ],
           ]
         },
       }),
@@ -1269,18 +1285,6 @@ export default function IVRichTextEditor({
       const words = editor.storage.characterCount?.words?.() ?? 0
       setLiveWordCount(words)
 
-      // Also check the JSON structure for mentions that might not be detected
-      const jsonStr = JSON.stringify(json)
-      // eslint-disable-next-line no-console
-      console.log('[IVRichTextEditor] onUpdate: checking JSON for mentions', {
-        jsonMentionsCount: (jsonStr.match(/mention/g) || []).length,
-        jsonPreview: jsonStr.substring(0, 1000),
-      })
-
-      // Debug log for every onUpdate with the mentions that will be sent upstream
-      // eslint-disable-next-line no-console
-      console.log('[IVRichTextEditor] onUpdate: mentions payload', mentions)
-
       onChange(
         {
           html: editor.getHTML(),
@@ -1295,16 +1299,6 @@ export default function IVRichTextEditor({
       attributes: autoFocus ? { 'data-autofocus-target': 'true' } : undefined,
     },
     onBlur,
-    // TODO: Add custom ctrl/cmd+click handler for links
-    // editorProps: {
-    //   handleClickOn(_view, pos, node, nodePos, event, direct) {
-    //     if (event.ctrlKey) {
-    //       console.log({ node, nodePos, pos })
-    //     }
-    //
-    //     return true
-    //   },
-    // },
   })
 
   useEffect(() => {
@@ -1429,7 +1423,11 @@ export default function IVRichTextEditor({
   )
 
   const addVideo = useCallback(
-    (url: string, aspectRatio: VideoAspectRatio) => {
+    (
+      url: string,
+      aspectRatio: VideoAspectRatio,
+      layout?: { align?: VideoAlign; maxWidth?: VideoMaxWidth }
+    ) => {
       if (!editor || !url) return
       editor
         .chain()
@@ -1440,6 +1438,8 @@ export default function IVRichTextEditor({
             provider: 'youtube',
             src: url,
             aspectRatio,
+            align: layout?.align ?? 'left',
+            maxWidth: layout?.maxWidth ?? 'full',
           },
         })
         .run()
@@ -1802,19 +1802,23 @@ function ReviewSidebar({
       </div>
 
       {selectedComment ? (
-        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <div className="mt-4 flex min-h-0 flex-col rounded-lg border border-gray-200 bg-white p-3">
+          <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-gray-500">
             Selected comment
           </div>
-          <div className="mt-2 text-sm text-gray-900">
-            {selectedComment.comment}
-          </div>
-          {selectedComment.selectedText || selectedComment.anchor?.text ? (
-            <div className="mt-2 text-xs italic text-gray-500">
-              "{selectedComment.selectedText || selectedComment.anchor?.text}"
+          <div className="mt-2 max-h-[min(45vh,22rem)] min-h-0 space-y-2 overflow-y-auto overflow-x-hidden pr-1 break-words">
+            <div className="text-sm whitespace-pre-wrap text-gray-900">
+              {selectedComment.comment}
             </div>
-          ) : null}
-          <div className="mt-3 flex gap-2">
+            {selectedComment.selectedText || selectedComment.anchor?.text ? (
+              <div className="text-xs italic whitespace-pre-wrap text-gray-500">
+                &quot;
+                {selectedComment.selectedText || selectedComment.anchor?.text}
+                &quot;
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-3 flex shrink-0 gap-2 border-t border-gray-100 pt-3">
             {selectedComment.status === 'PENDING' ? (
               <IVButton
                 label={
@@ -3675,7 +3679,11 @@ function VideoInsertModal({
   dialog: ReturnType<typeof useDialogState>
   aspectRatioOptions?: VideoAspectRatio[]
   defaultAspectRatio?: VideoAspectRatio
-  onInsert: (url: string, aspectRatio: VideoAspectRatio) => void
+  onInsert: (
+    url: string,
+    aspectRatio: VideoAspectRatio,
+    layout: { align: VideoAlign; maxWidth: VideoMaxWidth }
+  ) => void
 }) {
   const options = aspectRatioOptions?.length
     ? aspectRatioOptions
@@ -3684,11 +3692,15 @@ function VideoInsertModal({
   const [aspectRatio, setAspectRatio] = useState<VideoAspectRatio>(
     defaultAspectRatio ?? 'horizontal'
   )
+  const [align, setAlign] = useState<VideoAlign>('left')
+  const [maxWidth, setMaxWidth] = useState<VideoMaxWidth>('full')
 
   useEffect(() => {
     if (!dialog.visible) {
       setUrlValue('')
       setAspectRatio(defaultAspectRatio ?? 'horizontal')
+      setAlign('left')
+      setMaxWidth('full')
     }
   }, [defaultAspectRatio, dialog.visible])
 
@@ -3706,7 +3718,7 @@ function VideoInsertModal({
             value={urlValue}
             onChange={event => setUrlValue(event.target.value)}
             className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-            placeholder="https://www.youtube.com/watch?v=..."
+            placeholder="https://www.youtube.com/watch?v=... or /shorts/..."
           />
         </label>
         <label className="block">
@@ -3727,6 +3739,39 @@ function VideoInsertModal({
             ))}
           </select>
         </label>
+        {aspectRatio === 'vertical' ? (
+          <p className="text-xs text-gray-500 -mt-2">
+            Tip: narrower max width + center alignment works well for portrait /
+            Shorts.
+          </p>
+        ) : null}
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Max width</span>
+          <select
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            value={maxWidth}
+            onChange={event =>
+              setMaxWidth(event.target.value as VideoMaxWidth)
+            }
+          >
+            <option value="full">Full (column width)</option>
+            <option value="lg">Large (~672px)</option>
+            <option value="md">Medium (~448px)</option>
+            <option value="sm">Narrow (~288px)</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Alignment</span>
+          <select
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            value={align}
+            onChange={event => setAlign(event.target.value as VideoAlign)}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </label>
         <div
           className="iv-video-frame"
           style={{ aspectRatio: toAspectRatioString(aspectRatio) }}
@@ -3740,7 +3785,7 @@ function VideoInsertModal({
             label="Insert video"
             disabled={!urlValue}
             onClick={() => {
-              onInsert(urlValue, aspectRatio)
+              onInsert(urlValue, aspectRatio, { align, maxWidth })
               dialog.hide()
             }}
           />

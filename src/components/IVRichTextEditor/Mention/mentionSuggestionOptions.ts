@@ -57,8 +57,6 @@ const parseTrustfolioUrl = async (
       return null
     }
 
-    console.log('urlObj', urlObj)
-
     const pathParts = urlObj.pathname.split('/').filter(Boolean)
 
     //Article

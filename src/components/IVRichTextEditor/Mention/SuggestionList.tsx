@@ -1,6 +1,7 @@
 import type { SuggestionOptions, SuggestionProps } from '@tiptap/suggestion'
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import type { MentionSuggestion } from './mentionSuggestionOptions'
+import { mentionKindLabel } from './mentionKindUi'
 import './SuggestionList.css'
 
 export type SuggestionListRef = {
@@ -127,7 +128,7 @@ const SuggestionList = forwardRef<SuggestionListRef, SuggestionListProps>(
                 <span
                   className={`suggestion-badge suggestion-badge-${item.type}`}
                 >
-                  {item.type}
+                  {mentionKindLabel(item.type)}
                 </span>
               </div>
             </div>
