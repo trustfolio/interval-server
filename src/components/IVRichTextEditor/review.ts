@@ -8,11 +8,11 @@ export type ReviewComment = {
   status: 'PENDING' | 'RESOLVED'
   comment: string
   selectedText?: string | null
-  anchor: {
+  anchor?: {
     from: number
     to: number
     text?: string | null
-  }
+  } | null
   authorName?: string | null
   authorEmail?: string | null
   createdAt?: string | null
@@ -26,6 +26,14 @@ type MutableRefValue<T> = {
 export const reviewCommentsPluginKey = new PluginKey('iv-review-comments')
 
 const clampCommentRange = (docSize: number, comment: ReviewComment) => {
+  if (
+    !comment.anchor ||
+    typeof comment.anchor.from !== 'number' ||
+    typeof comment.anchor.to !== 'number'
+  ) {
+    return null
+  }
+
   const min = Math.min(comment.anchor.from, comment.anchor.to)
   const max = Math.max(comment.anchor.from, comment.anchor.to)
   const safeFrom = Math.max(1, Math.min(min, docSize))
@@ -168,7 +176,7 @@ export const sortReviewComments = (comments: ReviewComment[]) =>
   })
 
 export const focusReviewComment = (editor: Editor | null, comment: ReviewComment) => {
-  if (!editor) return
+  if (!editor || !comment.anchor) return
 
   const docSize = editor.state.doc.content.size
   const range = clampCommentRange(docSize, comment)

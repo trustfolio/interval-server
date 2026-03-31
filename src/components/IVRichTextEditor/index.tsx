@@ -717,7 +717,7 @@ export interface IVRichTextEditorProps {
       status: 'PENDING' | 'RESOLVED'
       comment: string
       selectedText?: string | null
-      anchor: { from: number; to: number; text?: string | null }
+      anchor?: { from: number; to: number; text?: string | null } | null
       authorName?: string | null
       authorEmail?: string | null
       createdAt?: string | null
@@ -803,6 +803,7 @@ export default function IVRichTextEditor({
     string | null
   >(null)
   const reviewCommentsRef = useRef<ReviewComment[]>(review?.comments ?? [])
+  const reviewCommentsPropSigRef = useRef<string | null>(null)
   const selectedCommentIdRef = useRef<string | null>(
     getDefaultSelectedCommentId(
       review?.comments ?? [],
@@ -1317,6 +1318,25 @@ export default function IVRichTextEditor({
 
   useEffect(() => {
     const nextComments = review?.comments ?? []
+    const sig = nextComments
+      .map(c => {
+        const a = c.anchor
+        const range =
+          a && typeof a.from === 'number' && typeof a.to === 'number'
+            ? `${a.from},${a.to}`
+            : ''
+        return `${c.id}\t${c.status}\t${range}`
+      })
+      .join('\n')
+
+    if (
+      reviewCommentsPropSigRef.current !== null &&
+      sig === reviewCommentsPropSigRef.current
+    ) {
+      return
+    }
+
+    reviewCommentsPropSigRef.current = sig
     reviewCommentsRef.current = nextComments
     setReviewComments(nextComments)
     setSelectedCommentId(currentSelection =>
@@ -1759,9 +1779,9 @@ function ReviewSidebar({
                     {comment.status === 'PENDING' ? 'Open' : 'Resolved'}
                   </span>
                 </div>
-                {comment.selectedText || comment.anchor.text ? (
+                {comment.selectedText || comment.anchor?.text ? (
                   <div className="mt-1 text-xs italic text-gray-500 line-clamp-2">
-                    "{comment.selectedText || comment.anchor.text}"
+                    "{comment.selectedText || comment.anchor?.text}"
                   </div>
                 ) : null}
                 <div className="mt-1 text-sm text-gray-800 line-clamp-3">
@@ -1789,9 +1809,9 @@ function ReviewSidebar({
           <div className="mt-2 text-sm text-gray-900">
             {selectedComment.comment}
           </div>
-          {selectedComment.selectedText || selectedComment.anchor.text ? (
+          {selectedComment.selectedText || selectedComment.anchor?.text ? (
             <div className="mt-2 text-xs italic text-gray-500">
-              "{selectedComment.selectedText || selectedComment.anchor.text}"
+              "{selectedComment.selectedText || selectedComment.anchor?.text}"
             </div>
           ) : null}
           <div className="mt-3 flex gap-2">
