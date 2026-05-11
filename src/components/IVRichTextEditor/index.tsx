@@ -42,19 +42,20 @@ import MoreIcon from '~/icons/compiled/More'
 import { ShortcutMap, getShortcuts } from '~/utils/usePlatform'
 import { client as trpcClient } from '~/utils/trpc'
 import { mentionSuggestionOptions } from './Mention/mentionSuggestionOptions'
-import {
-  mentionKindAbbrev,
-  mentionKindLabel,
-} from './Mention/mentionKindUi'
+import { mentionKindAbbrev, mentionKindLabel } from './Mention/mentionKindUi'
 import { Callout } from './Callout'
 import CalloutEditor from './CalloutEditor'
-import {
-  BeforeAfter,
-  type BeforeAfterAttrs,
-} from './BeforeAfter'
+import { BeforeAfter, type BeforeAfterAttrs } from './BeforeAfter'
 import { CTA, type CtaAttrs } from './CTA'
 import { Faq } from './Faq'
 import type { FaqItem } from './Faq'
+import {
+  MarketingList,
+  type MarketingListAttrs,
+  type MarketingListItem,
+  type MarketingListLayout,
+  normalizeMarketingListItems,
+} from './List'
 import {
   createReviewCommentsExtension,
   focusReviewComment,
@@ -70,6 +71,10 @@ type VideoMaxWidth = 'full' | 'lg' | 'md' | 'sm'
 type GalleryLayout = 'grid' | 'slider'
 type GalleryItemType = 'image' | 'youtube'
 type LinkInsertMode = 'text' | 'preview' | 'mention'
+
+type LinkInsertOptions = {
+  obfuscated?: boolean
+}
 
 type GalleryItem = {
   type: GalleryItemType
@@ -125,15 +130,19 @@ function videoShellStyles(
   maxWidth: VideoMaxWidth
 ): { outer: string; inner: string } {
   const justify =
-    align === 'right' ? 'flex-end' : align === 'center' ? 'center' : 'flex-start'
+    align === 'right'
+      ? 'flex-end'
+      : align === 'center'
+      ? 'center'
+      : 'flex-start'
   const maxW =
     maxWidth === 'lg'
       ? 'min(100%, 42rem)'
       : maxWidth === 'md'
-        ? 'min(100%, 28rem)'
-        : maxWidth === 'sm'
-          ? 'min(100%, 18rem)'
-          : ''
+      ? 'min(100%, 28rem)'
+      : maxWidth === 'sm'
+      ? 'min(100%, 18rem)'
+      : ''
   return {
     outer: `display:flex;width:100%;justify-content:${justify};`,
     inner: maxW
@@ -554,6 +563,24 @@ const IVGallery = Node.create({
 })
 
 const CustomLink = Link.extend({
+  addAttributes() {
+    return {
+      ...(this.parent?.() ?? {}),
+      obfuscated: {
+        default: false,
+        parseHTML: element =>
+          element.getAttribute('data-iv-link-obfuscated') === 'true' ||
+          element.getAttribute('data-obfuscated-link') === 'true',
+        renderHTML: attributes => {
+          if (!attributes.obfuscated) return {}
+          return {
+            'data-iv-link-obfuscated': 'true',
+            'data-obfuscated-link': 'true',
+          }
+        },
+      },
+    }
+  },
   addKeyboardShortcuts() {
     return {
       'Mod-C': ({ editor }) => clearFormattingButtonHandler(editor),
@@ -574,12 +601,33 @@ const CustomLink = Link.extend({
           ) {
             return false
           }
-          return {}
+          return {
+            obfuscated:
+              el.getAttribute('data-iv-link-obfuscated') === 'true' ||
+              el.getAttribute('data-obfuscated-link') === 'true',
+          }
         },
       },
     ]
   },
 })
+
+/** TipTap's `setLink` / link mark typings omit CustomLink's `obfuscated` attribute. */
+type TipTapLinkCommandAttrs = {
+  href: string
+  target?: string | null
+  rel?: string | null
+  class?: string | null
+}
+
+function customLinkAttrs(
+  href: string,
+  obfuscated?: boolean
+): TipTapLinkCommandAttrs {
+  return (
+    obfuscated === true ? { href, obfuscated: true } : { href }
+  ) as TipTapLinkCommandAttrs
+}
 
 function clearFormattingButtonHandler(editor: CoreEditor) {
   return editor
@@ -714,6 +762,20 @@ function getAllMentions(doc: any): Array<any> {
 
       result.push(attrs)
     }
+
+    if (nodeType === 'marketingList') {
+      const items = normalizeMarketingListItems(node.attrs?.items)
+      items.forEach(item => {
+        if (!item.mention) return
+        const attrs = {
+          ...item.mention,
+          label: item.mention.label || item.title,
+          url: item.mention.url ? cleanUrl(item.mention.url) : null,
+          variant: item.mention.variant || 'inline',
+        }
+        result.push(attrs)
+      })
+    }
   })
 
   return result
@@ -721,7 +783,12 @@ function getAllMentions(doc: any): Array<any> {
 
 export interface IVRichTextEditorProps {
   id?: string
-  defaultValue?: { html: string; json?: any; mentions?: any[]; wordCount?: number }
+  defaultValue?: {
+    html: string
+    json?: any
+    mentions?: any[]
+    wordCount?: number
+  }
   media?: any
   links?: any
   review?: {
@@ -795,6 +862,7 @@ export default function IVRichTextEditor({
   const videoDialog = useDialogState({ visible: false, modal: true })
   const galleryDialog = useDialogState({ visible: false, modal: true })
   const beforeAfterDialog = useDialogState({ visible: false, modal: true })
+  const marketingListDialog = useDialogState({ visible: false, modal: true })
   const ctaDialog = useDialogState({ visible: false, modal: true })
   const linkDialog = useDialogState({ visible: false, modal: true })
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>(
@@ -889,7 +957,8 @@ export default function IVRichTextEditor({
         placeholder,
       }),
       CharacterCount.configure({
-        wordCounter: text => text.split(/\s+/).filter(word => word !== '').length,
+        wordCounter: text =>
+          text.split(/\s+/).filter(word => word !== '').length,
       }),
       Image,
       LinkPreviewCard,
@@ -897,6 +966,7 @@ export default function IVRichTextEditor({
       IVVideo,
       IVGallery,
       BeforeAfter,
+      MarketingList,
       CTA,
       Mention.extend({
         addAttributes() {
@@ -1007,7 +1077,9 @@ export default function IVRichTextEditor({
                 if (!el.hasAttribute('data-mention-type')) {
                   return false
                 }
-                const displayRawB = el.getAttribute('data-mention-display-label')
+                const displayRawB = el.getAttribute(
+                  'data-mention-display-label'
+                )
                 const attrs = {
                   type: el.getAttribute('data-mention-type') || '',
                   url: (() => {
@@ -1481,12 +1553,21 @@ export default function IVRichTextEditor({
     [editor]
   )
 
+  const addMarketingList = useCallback(
+    (payload: MarketingListAttrs) => {
+      if (!editor) return
+      editor.chain().focus().setMarketingList(payload).run()
+    },
+    [editor]
+  )
+
   const insertLink = useCallback(
     async (
       mode: LinkInsertMode,
       url: string,
       label?: string,
-      preview?: LinkPreviewMetadata
+      preview?: LinkPreviewMetadata,
+      options?: LinkInsertOptions
     ) => {
       if (!editor || !url) return
 
@@ -1538,13 +1619,17 @@ export default function IVRichTextEditor({
             marks: [
               {
                 type: 'link',
-                attrs: { href: url },
+                attrs: customLinkAttrs(url, options?.obfuscated),
               },
             ],
           })
           .run()
       } else {
-        editor.chain().focus().setLink({ href: url }).run()
+        editor
+          .chain()
+          .focus()
+          .setLink(customLinkAttrs(url, options?.obfuscated))
+          .run()
       }
     },
     [editor, fetchLinkPreview]
@@ -1590,6 +1675,7 @@ export default function IVRichTextEditor({
         onAddVideo={() => videoDialog.show()}
         onAddGallery={() => galleryDialog.show()}
         onAddBeforeAfter={() => beforeAfterDialog.show()}
+        onAddMarketingList={() => marketingListDialog.show()}
         onAddCta={() => ctaDialog.show()}
         onAddLink={() => linkDialog.show()}
       />
@@ -1633,6 +1719,7 @@ export default function IVRichTextEditor({
       <CalloutClickHandler editor={editor} />
       <FaqClickHandler editor={editor} disabled={!!disabled} />
       <BeforeAfterClickHandler editor={editor} disabled={!!disabled} />
+      <MarketingListClickHandler editor={editor} disabled={!!disabled} />
       <CtaClickHandler editor={editor} disabled={!!disabled} />
       <MentionClickHandler editor={editor} />
       <ImageInsertModal
@@ -1663,6 +1750,10 @@ export default function IVRichTextEditor({
       <BeforeAfterInsertModal
         dialog={beforeAfterDialog}
         onInsert={addBeforeAfter}
+      />
+      <MarketingListInsertModal
+        dialog={marketingListDialog}
+        onInsert={addMarketingList}
       />
       <CTAInsertModal dialog={ctaDialog} onInsert={addCta} />
       <LinkInsertModal
@@ -1934,7 +2025,9 @@ function findFaqNodePosition(
   }): FaqItem[] =>
     Array.isArray(node.attrs.items) ? [...(node.attrs.items as FaqItem[])] : []
 
-  const resolveFaqAtPos = (rawPos: number): { pos: number; items: FaqItem[] } | null => {
+  const resolveFaqAtPos = (
+    rawPos: number
+  ): { pos: number; items: FaqItem[] } | null => {
     const pos = Math.min(Math.max(0, rawPos), max)
     const $pos = doc.resolve(pos)
 
@@ -2017,7 +2110,9 @@ function FaqClickHandler({
   const updateItem = useCallback(
     (index: number, key: keyof FaqItem, value: string) => {
       setFaqItems(current =>
-        current.map((item, i) => (i === index ? { ...item, [key]: value } : item))
+        current.map((item, i) =>
+          i === index ? { ...item, [key]: value } : item
+        )
       )
     },
     []
@@ -2049,7 +2144,9 @@ function FaqClickHandler({
       .focus()
       .setNodeSelection(faqPos)
       .updateFaq(
-        sanitizedItems.length > 0 ? sanitizedItems : [{ question: '', answer: '' }]
+        sanitizedItems.length > 0
+          ? sanitizedItems
+          : [{ question: '', answer: '' }]
       )
       .run()
 
@@ -2091,12 +2188,17 @@ function FaqClickHandler({
     >
       <div className="space-y-3">
         <p className="text-sm text-gray-600">
-          Update questions and answers, then save to apply changes in the editor.
+          Update questions and answers, then save to apply changes in the
+          editor.
         </p>
         <div className="space-y-3 max-h-[28rem] overflow-auto pr-1">
           {faqItems.map((item, index) => (
             <div
-              key={faqPos !== null ? `faq-${faqPos}-row-${index}` : `faq-row-${index}`}
+              key={
+                faqPos !== null
+                  ? `faq-${faqPos}-row-${index}`
+                  : `faq-row-${index}`
+              }
               className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2"
             >
               <div className="flex items-center justify-between gap-3">
@@ -2114,14 +2216,18 @@ function FaqClickHandler({
                 type="text"
                 value={item.question}
                 disabled={disabled}
-                onChange={event => updateItem(index, 'question', event.target.value)}
+                onChange={event =>
+                  updateItem(index, 'question', event.target.value)
+                }
                 placeholder="Question"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
               />
               <textarea
                 value={item.answer}
                 disabled={disabled}
-                onChange={event => updateItem(index, 'answer', event.target.value)}
+                onChange={event =>
+                  updateItem(index, 'answer', event.target.value)
+                }
                 placeholder="Answer"
                 rows={4}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
@@ -2144,11 +2250,7 @@ function FaqClickHandler({
               onClick={deleteFaqBlock}
             />
           </div>
-          <IVButton
-            label="Save FAQ"
-            disabled={disabled}
-            onClick={saveFaq}
-          />
+          <IVButton label="Save FAQ" disabled={disabled} onClick={saveFaq} />
         </div>
       </div>
     </IVDialog>
@@ -2177,7 +2279,9 @@ function findBeforeAfterNodePosition(
           const numericText = Object.keys(obj)
             .filter(key => /^\d+$/.test(key))
             .sort((a, b) => Number(a) - Number(b))
-            .map(key => (typeof obj[key] === 'string' ? (obj[key] as string) : ''))
+            .map(key =>
+              typeof obj[key] === 'string' ? (obj[key] as string) : ''
+            )
             .join('')
             .trim()
           if (numericText) return numericText
@@ -2199,12 +2303,16 @@ function findBeforeAfterNodePosition(
     leftTitle:
       typeof node.attrs.leftTitle === 'string' ? node.attrs.leftTitle : 'Avant',
     rightTitle:
-      typeof node.attrs.rightTitle === 'string' ? node.attrs.rightTitle : 'Après',
+      typeof node.attrs.rightTitle === 'string'
+        ? node.attrs.rightTitle
+        : 'Après',
     leftItems: normalizeBeforeAfterItems(node.attrs.leftItems),
     rightItems: normalizeBeforeAfterItems(node.attrs.rightItems),
   })
 
-  const resolveBeforeAfterAtPos = (rawPos: number): { pos: number; attrs: BeforeAfterAttrs } | null => {
+  const resolveBeforeAfterAtPos = (
+    rawPos: number
+  ): { pos: number; attrs: BeforeAfterAttrs } | null => {
     const pos = Math.min(Math.max(0, rawPos), max)
     const $pos = doc.resolve(pos)
 
@@ -2268,7 +2376,10 @@ function BeforeAfterClickHandler({
       event.preventDefault()
       event.stopPropagation()
 
-      const found = findBeforeAfterNodePosition(editor, beforeAfterElement as HTMLElement)
+      const found = findBeforeAfterNodePosition(
+        editor,
+        beforeAfterElement as HTMLElement
+      )
       if (!found) return
 
       setNodePos(found.pos)
@@ -2315,7 +2426,16 @@ function BeforeAfterClickHandler({
       .run()
 
     dialog.hide()
-  }, [dialog, editor, leftItemsText, leftTitle, nodePos, parseLines, rightItemsText, rightTitle])
+  }, [
+    dialog,
+    editor,
+    leftItemsText,
+    leftTitle,
+    nodePos,
+    parseLines,
+    rightItemsText,
+    rightTitle,
+  ])
 
   const deleteBlock = useCallback(() => {
     if (!editor || nodePos === null || disabled) return
@@ -2352,7 +2472,9 @@ function BeforeAfterClickHandler({
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Left title</span>
+            <span className="text-sm font-medium text-gray-700">
+              Left title
+            </span>
             <input
               type="text"
               value={leftTitle}
@@ -2362,7 +2484,9 @@ function BeforeAfterClickHandler({
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Right title</span>
+            <span className="text-sm font-medium text-gray-700">
+              Right title
+            </span>
             <input
               type="text"
               value={rightTitle}
@@ -2418,6 +2542,266 @@ function BeforeAfterClickHandler({
   )
 }
 
+function marketingListItemsToText(items: MarketingListItem[]): string {
+  return normalizeMarketingListItems(items)
+    .map(item =>
+      [
+        item.title,
+        item.description || '',
+        item.href || '',
+        item.overtext || '',
+        item.icon || '',
+        item.obfuscated ? 'obfuscated' : '',
+        item.mention
+          ? `@${item.mention.type}:${item.mention.id}:${
+              item.mention.variant || 'inline'
+            }`
+          : '',
+      ].join(' | ')
+    )
+    .join('\n')
+}
+
+function parseMarketingListMentionToken(
+  value: string,
+  label: string,
+  url: string
+): MarketingListItem['mention'] | undefined {
+  const token = value.trim()
+  if (!token.startsWith('@')) return undefined
+
+  const [type, id, variant] = token
+    .slice(1)
+    .split(':')
+    .map(part => part.trim())
+  if (!type || !id) return undefined
+
+  return {
+    id,
+    type,
+    label: label.trim(),
+    ...(url.trim() ? { url: url.trim() } : {}),
+    ...(variant === 'pill' || variant === 'mega-pill' || variant === 'inline'
+      ? { variant }
+      : {}),
+  }
+}
+
+function textToMarketingListItems(value: string): MarketingListItem[] {
+  return normalizeMarketingListItems(
+    value
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const [title, description, href, overtext, icon, obfuscated, mention] =
+          line.split('|').map(part => part.trim())
+        return {
+          title,
+          description,
+          href,
+          overtext,
+          icon,
+          obfuscated:
+            obfuscated === 'true' ||
+            obfuscated === 'yes' ||
+            obfuscated === 'obfuscated',
+          mention: parseMarketingListMentionToken(mention || '', title, href),
+        }
+      })
+  )
+}
+
+function findMarketingListNodePosition(
+  editor: Editor,
+  element: HTMLElement
+): { pos: number; attrs: MarketingListAttrs } | null {
+  const view = editor.view
+  const doc = editor.state.doc
+  const max = doc.content.size
+
+  const attrsFromNode = (node: {
+    attrs: {
+      title?: unknown
+      description?: unknown
+      ordered?: unknown
+      layout?: unknown
+      items?: unknown
+    }
+    type: { name: string }
+  }): MarketingListAttrs => ({
+    title: typeof node.attrs.title === 'string' ? node.attrs.title : '',
+    description:
+      typeof node.attrs.description === 'string' ? node.attrs.description : '',
+    ordered: node.attrs.ordered === true,
+    layout:
+      node.attrs.layout === 'cards' ||
+      node.attrs.layout === 'rows' ||
+      node.attrs.layout === 'compact' ||
+      node.attrs.layout === 'table'
+        ? node.attrs.layout
+        : 'cards',
+    items: normalizeMarketingListItems(node.attrs.items),
+  })
+
+  const resolveAtPos = (rawPos: number) => {
+    const pos = Math.min(Math.max(0, rawPos), max)
+    const $pos = doc.resolve(pos)
+
+    for (let d = $pos.depth; d >= 0; d--) {
+      const node = $pos.node(d)
+      if (node.type.name === 'marketingList') {
+        return { pos: $pos.before(d), attrs: attrsFromNode(node) }
+      }
+    }
+
+    const after = $pos.nodeAfter
+    if (after?.type.name === 'marketingList') {
+      return { pos: $pos.pos, attrs: attrsFromNode(after) }
+    }
+
+    const before = $pos.nodeBefore
+    if (before?.type.name === 'marketingList') {
+      return { pos: $pos.pos - before.nodeSize, attrs: attrsFromNode(before) }
+    }
+
+    return null
+  }
+
+  for (const bias of [0, -1, 1] as const) {
+    let rawPos: number
+    try {
+      rawPos = view.posAtDOM(element, bias)
+    } catch {
+      continue
+    }
+    const found = resolveAtPos(rawPos)
+    if (found) return found
+  }
+
+  return null
+}
+
+function MarketingListClickHandler({
+  editor,
+  disabled,
+}: {
+  editor: Editor | null
+  disabled: boolean
+}) {
+  const dialog = useDialogState({ visible: false, modal: true })
+  const [nodePos, setNodePos] = useState<number | null>(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [ordered, setOrdered] = useState(false)
+  const [layout, setLayout] = useState<MarketingListLayout>('cards')
+  const [itemsText, setItemsText] = useState(
+    'Nouvel élément | Description | https://example.com'
+  )
+
+  useEffect(() => {
+    if (!editor) return
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      const listElement = target.closest('[data-marketing-list]')
+      if (!listElement) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const found = findMarketingListNodePosition(
+        editor,
+        listElement as HTMLElement
+      )
+      if (!found) return
+
+      setNodePos(found.pos)
+      setTitle(found.attrs.title || '')
+      setDescription(found.attrs.description || '')
+      setOrdered(found.attrs.ordered === true)
+      setLayout(found.attrs.layout || 'cards')
+      setItemsText(marketingListItemsToText(found.attrs.items || []))
+      editor.chain().focus().setNodeSelection(found.pos).run()
+      dialog.show()
+    }
+
+    const editorElement = editor.view.dom
+    editorElement.addEventListener('click', handleClick)
+
+    return () => {
+      editorElement.removeEventListener('click', handleClick)
+    }
+  }, [dialog, editor])
+
+  const saveBlock = useCallback(() => {
+    if (!editor || nodePos === null) return
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(nodePos)
+      .updateMarketingList({
+        title: title.trim(),
+        description: description.trim(),
+        ordered,
+        layout,
+        items: textToMarketingListItems(itemsText),
+      })
+      .run()
+
+    dialog.hide()
+  }, [description, dialog, editor, itemsText, layout, nodePos, ordered, title])
+
+  const deleteBlock = useCallback(() => {
+    if (!editor || nodePos === null || disabled) return
+    const confirmed = window.confirm(
+      'Remove this entire List block from the document?'
+    )
+    if (!confirmed) return
+
+    const node = editor.state.doc.nodeAt(nodePos)
+    if (!node || node.type.name !== 'marketingList') {
+      dialog.hide()
+      setNodePos(null)
+      return
+    }
+
+    editor
+      .chain()
+      .focus()
+      .deleteRange({ from: nodePos, to: nodePos + node.nodeSize })
+      .run()
+
+    dialog.hide()
+    setNodePos(null)
+  }, [dialog, disabled, editor, nodePos])
+
+  if (!editor) return null
+
+  return (
+    <MarketingListDialogBody
+      dialog={dialog}
+      title="Edit List"
+      disabled={disabled}
+      listTitle={title}
+      setListTitle={setTitle}
+      description={description}
+      setDescription={setDescription}
+      ordered={ordered}
+      setOrdered={setOrdered}
+      layout={layout}
+      setLayout={setLayout}
+      itemsText={itemsText}
+      setItemsText={setItemsText}
+      primaryLabel="Save block"
+      onPrimary={saveBlock}
+      dangerLabel="Remove block"
+      onDanger={deleteBlock}
+    />
+  )
+}
+
 /** Map a CTA DOM node to the correct doc position (supports multiple blocks). */
 function findCtaNodePosition(
   editor: Editor,
@@ -2455,7 +2839,9 @@ function findCtaNodePosition(
         : false,
   })
 
-  const resolveCtaAtPos = (rawPos: number): { pos: number; attrs: CtaAttrs } | null => {
+  const resolveCtaAtPos = (
+    rawPos: number
+  ): { pos: number; attrs: CtaAttrs } | null => {
     const pos = Math.min(Math.max(0, rawPos), max)
     const $pos = doc.resolve(pos)
 
@@ -2558,7 +2944,16 @@ function CtaClickHandler({
       .run()
 
     dialog.hide()
-  }, [buttonLink, buttonObfuscated, buttonText, description, dialog, editor, nodePos, title])
+  }, [
+    buttonLink,
+    buttonObfuscated,
+    buttonText,
+    description,
+    dialog,
+    editor,
+    nodePos,
+    title,
+  ])
 
   const deleteBlock = useCallback(() => {
     if (!editor || nodePos === null || disabled) return
@@ -2617,7 +3012,9 @@ function CtaClickHandler({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Button text</span>
+            <span className="text-sm font-medium text-gray-700">
+              Button text
+            </span>
             <input
               type="text"
               value={buttonText}
@@ -2627,7 +3024,9 @@ function CtaClickHandler({
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Button link</span>
+            <span className="text-sm font-medium text-gray-700">
+              Button link
+            </span>
             <input
               type="url"
               value={buttonLink}
@@ -2688,9 +3087,7 @@ function MentionClickHandler({ editor }: { editor: Editor | null }) {
       return
     }
     const v = mentionNode.node.attrs.displayLabel
-    setDisplayLabelDraft(
-      typeof v === 'string' ? v : v != null ? String(v) : ''
-    )
+    setDisplayLabelDraft(typeof v === 'string' ? v : v != null ? String(v) : '')
   }, [mentionNode])
 
   useEffect(() => {
@@ -2991,6 +3388,7 @@ function MenuBar({
   onAddVideo,
   onAddGallery,
   onAddBeforeAfter,
+  onAddMarketingList,
   onAddCta,
   onAddLink,
 }: {
@@ -3004,6 +3402,7 @@ function MenuBar({
   onAddVideo: () => void
   onAddGallery: () => void
   onAddBeforeAfter: () => void
+  onAddMarketingList: () => void
   onAddCta: () => void
   onAddLink: () => void
 }) {
@@ -3243,6 +3642,14 @@ function MenuBar({
               },
             },
             {
+              title: 'Delete table row',
+              label: <span className="text-xs font-semibold">Row-</span>,
+              disabled: disabled || !editor.can().deleteRow(),
+              onClick() {
+                editor.chain().focus().deleteRow().run()
+              },
+            },
+            {
               title: 'Add table column',
               label: <span className="text-xs font-semibold">Col+</span>,
               disabled: disabled || !editor.can().addColumnAfter(),
@@ -3305,6 +3712,12 @@ function MenuBar({
               label: <span className="text-[11px] font-semibold">B/A</span>,
               disabled: disabled || !editor.can().setBeforeAfter(),
               onClick: onAddBeforeAfter,
+            },
+            {
+              title: 'Add List',
+              label: <span className="text-[11px] font-semibold">List</span>,
+              disabled: disabled || !editor.can().setMarketingList(),
+              onClick: onAddMarketingList,
             },
             {
               title: 'Add CTA',
@@ -3750,9 +4163,7 @@ function VideoInsertModal({
           <select
             className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
             value={maxWidth}
-            onChange={event =>
-              setMaxWidth(event.target.value as VideoMaxWidth)
-            }
+            onChange={event => setMaxWidth(event.target.value as VideoMaxWidth)}
           >
             <option value="full">Full (column width)</option>
             <option value="lg">Large (~672px)</option>
@@ -4076,7 +4487,9 @@ function BeforeAfterInsertModal({
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Left title</span>
+            <span className="text-sm font-medium text-gray-700">
+              Left title
+            </span>
             <input
               type="text"
               value={leftTitle}
@@ -4086,7 +4499,9 @@ function BeforeAfterInsertModal({
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Right title</span>
+            <span className="text-sm font-medium text-gray-700">
+              Right title
+            </span>
             <input
               type="text"
               value={rightTitle}
@@ -4123,7 +4538,8 @@ function BeforeAfterInsertModal({
         </div>
 
         <div className="text-xs text-gray-500">
-          Fixed icons are applied in rendering (X on the left, check on the right).
+          Fixed icons are applied in rendering (X on the left, check on the
+          right).
         </div>
 
         <div className="flex justify-end">
@@ -4143,6 +4559,196 @@ function BeforeAfterInsertModal({
         </div>
       </div>
     </IVDialog>
+  )
+}
+
+function MarketingListDialogBody({
+  dialog,
+  title,
+  disabled,
+  listTitle,
+  setListTitle,
+  description,
+  setDescription,
+  ordered,
+  setOrdered,
+  layout,
+  setLayout,
+  itemsText,
+  setItemsText,
+  primaryLabel,
+  onPrimary,
+  dangerLabel,
+  onDanger,
+}: {
+  dialog: ReturnType<typeof useDialogState>
+  title: string
+  disabled?: boolean
+  listTitle: string
+  setListTitle: (value: string) => void
+  description: string
+  setDescription: (value: string) => void
+  ordered: boolean
+  setOrdered: (value: boolean) => void
+  layout: MarketingListLayout
+  setLayout: (value: MarketingListLayout) => void
+  itemsText: string
+  setItemsText: (value: string) => void
+  primaryLabel: string
+  onPrimary: () => void
+  dangerLabel?: string
+  onDanger?: () => void
+}) {
+  return (
+    <IVDialog
+      dialog={dialog}
+      title={title}
+      widthClassName="sm:max-w-2xl sm:w-full"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Title</span>
+            <input
+              type="text"
+              value={listTitle}
+              disabled={disabled}
+              onChange={event => setListTitle(event.target.value)}
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              placeholder="Comparatif, ressources, étapes..."
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-gray-700">Layout</span>
+            <select
+              value={layout}
+              disabled={disabled}
+              onChange={event =>
+                setLayout(event.target.value as MarketingListLayout)
+              }
+              className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            >
+              <option value="cards">Cards</option>
+              <option value="rows">Rows</option>
+              <option value="compact">Compact</option>
+              <option value="table">Table</option>
+            </select>
+          </label>
+        </div>
+
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Description</span>
+          <textarea
+            value={description}
+            disabled={disabled}
+            onChange={event => setDescription(event.target.value)}
+            rows={2}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={ordered}
+            disabled={disabled}
+            onChange={event => setOrdered(event.target.checked)}
+          />
+          Render as ordered list
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">
+            Items, one per line
+          </span>
+          <textarea
+            value={itemsText}
+            disabled={disabled}
+            onChange={event => setItemsText(event.target.value)}
+            rows={8}
+            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
+          />
+          <span className="mt-1 block text-xs text-gray-500">
+            Format: title | description | href | overtext | icon | obfuscated |
+            @type:public_id:variant
+          </span>
+        </label>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {onDanger && dangerLabel ? (
+            <IVButton
+              label={dangerLabel}
+              theme="danger"
+              disabled={disabled}
+              onClick={onDanger}
+            />
+          ) : (
+            <span />
+          )}
+          <IVButton
+            label={primaryLabel}
+            disabled={disabled}
+            onClick={onPrimary}
+          />
+        </div>
+      </div>
+    </IVDialog>
+  )
+}
+
+function MarketingListInsertModal({
+  dialog,
+  onInsert,
+}: {
+  dialog: ReturnType<typeof useDialogState>
+  onInsert: (payload: MarketingListAttrs) => void
+}) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [ordered, setOrdered] = useState(false)
+  const [layout, setLayout] = useState<MarketingListLayout>('cards')
+  const [itemsText, setItemsText] = useState(
+    'Premier élément | Description courte | https://example.com'
+  )
+
+  useEffect(() => {
+    if (!dialog.visible) {
+      setTitle('')
+      setDescription('')
+      setOrdered(false)
+      setLayout('cards')
+      setItemsText('Premier élément | Description courte | https://example.com')
+    }
+  }, [dialog.visible])
+
+  const submit = () => {
+    onInsert({
+      title: title.trim(),
+      description: description.trim(),
+      ordered,
+      layout,
+      items: textToMarketingListItems(itemsText),
+    })
+    dialog.hide()
+  }
+
+  return (
+    <MarketingListDialogBody
+      dialog={dialog}
+      title="Insert List"
+      listTitle={title}
+      setListTitle={setTitle}
+      description={description}
+      setDescription={setDescription}
+      ordered={ordered}
+      setOrdered={setOrdered}
+      layout={layout}
+      setLayout={setLayout}
+      itemsText={itemsText}
+      setItemsText={setItemsText}
+      primaryLabel="Insert list"
+      onPrimary={submit}
+    />
   )
 }
 
@@ -4201,7 +4807,9 @@ function CTAInsertModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Button text</span>
+            <span className="text-sm font-medium text-gray-700">
+              Button text
+            </span>
             <input
               type="text"
               value={buttonText}
@@ -4211,7 +4819,9 @@ function CTAInsertModal({
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Button link</span>
+            <span className="text-sm font-medium text-gray-700">
+              Button link
+            </span>
             <input
               type="url"
               value={buttonLink}
@@ -4270,7 +4880,8 @@ function LinkInsertModal({
     mode: LinkInsertMode,
     url: string,
     label?: string,
-    preview?: LinkPreviewMetadata
+    preview?: LinkPreviewMetadata,
+    options?: LinkInsertOptions
   ) => Promise<void>
 }) {
   const configuredModes = linksConfig?.modes?.length
@@ -4298,6 +4909,7 @@ function LinkInsertModal({
   const [loading, setLoading] = useState(false)
   const [warning, setWarning] = useState<string | null>(null)
   const [preview, setPreview] = useState<LinkPreviewMetadata | null>(null)
+  const [obfuscated, setObfuscated] = useState(false)
 
   useEffect(() => {
     if (!dialog.visible) {
@@ -4310,6 +4922,7 @@ function LinkInsertModal({
       setLabel('')
       setWarning(null)
       setPreview(null)
+      setObfuscated(false)
       setLoading(false)
     }
   }, [defaultMode, dialog.visible, safeAllowedModesKey])
@@ -4341,7 +4954,9 @@ function LinkInsertModal({
     try {
       const fetched = await fetchPreviewIfNeeded()
       const modeToInsert = mode === 'text' || fetched ? mode : 'text'
-      await onInsert(modeToInsert, url, label || undefined, fetched)
+      await onInsert(modeToInsert, url, label || undefined, fetched, {
+        obfuscated: modeToInsert === 'text' && obfuscated,
+      })
       dialog.hide()
     } finally {
       setLoading(false)
@@ -4376,6 +4991,21 @@ function LinkInsertModal({
             placeholder="https://example.com"
           />
         </label>
+
+        {mode === 'text' && (
+          <label className="flex items-start gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={obfuscated}
+              onChange={event => setObfuscated(event.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Obfuscate this link in marketplace renderers. Use this for
+              external or non-strategic links only, not for internal SEO links.
+            </span>
+          </label>
+        )}
 
         <label className="block">
           <span className="text-sm font-medium text-gray-700">

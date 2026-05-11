@@ -8,6 +8,10 @@ export function mentionKindLabel(type: string | undefined | null): string {
     collection: 'Collection',
     tag: 'Tag',
     article: 'Article',
+    brand_resource: 'Brand resource',
+    landing: 'Landing page',
+    feature: 'Feature page',
+    use_case: 'Use case page',
     leaderboard: 'Leaderboard',
     buyer: 'Buyer',
   }
@@ -24,6 +28,10 @@ export function mentionKindAbbrev(type: string | undefined | null): string {
     collection: 'Col',
     tag: 'Tag',
     article: 'Art',
+    brand_resource: 'Res',
+    landing: 'LP',
+    feature: 'Fea',
+    use_case: 'Use',
     leaderboard: 'Ldr',
     buyer: 'Buy',
   }

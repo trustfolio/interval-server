@@ -21,6 +21,10 @@ export type MentionSuggestion = {
     | 'collection'
     | 'tag'
     | 'article'
+    | 'brand_resource'
+    | 'landing'
+    | 'feature'
+    | 'use_case'
     | 'leaderboard'
     | 'buyer'
 }
@@ -60,15 +64,29 @@ const parseTrustfolioUrl = async (
     const pathParts = urlObj.pathname.split('/').filter(Boolean)
 
     //Article
-    if (pathParts[0] === 'articles' && pathParts[1]) {
-      const slug = pathParts[1]
+    if (
+      (pathParts[0] === 'articles' ||
+        (pathParts[0] === 'solutions' &&
+          (pathParts[1] === 'fonctionnalites' || pathParts[1] === 'usages')) ||
+        pathParts[0] === 'lp') &&
+      pathParts[pathParts.length - 1]
+    ) {
+      const pageSlug = pathParts[pathParts.length - 1]
+      const type =
+        pathParts[0] === 'articles'
+          ? 'article'
+          : pathParts[1] === 'fonctionnalites'
+          ? 'feature'
+          : pathParts[1] === 'usages'
+          ? 'use_case'
+          : 'landing'
 
-      if (!slug) {
+      if (!pageSlug) {
         return null
       }
 
       const response = await fetch(
-        `${HASURA_API_URL}/api/rest/mentions/article?slug=${slug}`,
+        `${HASURA_API_URL}/api/rest/mentions/article?slug=${pageSlug}`,
         {
           method: 'GET',
           headers: {},
@@ -90,7 +108,7 @@ const parseTrustfolioUrl = async (
       return {
         label: article.title,
         id: article.public_id,
-        type: 'article',
+        type,
         url: url,
       }
     }
@@ -328,7 +346,12 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
           ),
           ...(data.search_marketplace_pages || []).map(
             (item: {
-              kind: 'LEADERBOARD' | 'ARTICLE'
+              kind:
+                | 'LEADERBOARD'
+                | 'ARTICLE'
+                | 'LANDING'
+                | 'FEATURE'
+                | 'USE_CASE'
               public_id: string
               slug: string
               localized_metadata: {
@@ -337,11 +360,32 @@ export const mentionSuggestionOptions: MentionOptions['suggestion'] = {
             }) => ({
               label: item.localized_metadata?.[0]?.title || item.slug,
               id: item.public_id,
-              type: item.kind.toLowerCase(),
+              type:
+                item.kind === 'USE_CASE' ? 'use_case' : item.kind.toLowerCase(),
               url:
                 item.kind === 'ARTICLE'
                   ? `${MARKETPLACE_URL}/articles/${item.slug}`
+                  : item.kind === 'FEATURE'
+                  ? `${MARKETPLACE_URL}/solutions/fonctionnalites/${item.slug}`
+                  : item.kind === 'USE_CASE'
+                  ? `${MARKETPLACE_URL}/solutions/usages/${item.slug}`
+                  : item.kind === 'LANDING'
+                  ? `${MARKETPLACE_URL}/lp/${item.slug}`
                   : `${MARKETPLACE_URL}/membres/leaderboards/${item.slug}`,
+            })
+          ),
+          ...(data.search_brand_resources || []).map(
+            (item: {
+              title?: string
+              name?: string
+              public_id: string
+              slug?: string
+              url?: string
+            }) => ({
+              label: item.title || item.name || item.slug || item.public_id,
+              id: item.public_id,
+              type: 'brand_resource',
+              url: item.url || null,
             })
           ),
           ...(data.search_members_collections || []).map(

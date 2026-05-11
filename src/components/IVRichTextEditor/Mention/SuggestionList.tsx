@@ -30,6 +30,10 @@ export interface TfMentionNodeAttrs {
     | 'collection'
     | 'tag'
     | 'article'
+    | 'brand_resource'
+    | 'landing'
+    | 'feature'
+    | 'use_case'
     | 'leaderboard'
     | 'buyer'
 }
