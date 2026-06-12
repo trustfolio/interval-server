@@ -2548,7 +2548,10 @@ function marketingListItemsToText(items: MarketingListItem[]): string {
       [
         item.title,
         item.description || '',
-        item.href || '',
+        // The href column carries the mention url too: parsing feeds it back
+        // through parseMarketingListMentionToken so generated docs (url on the
+        // mention, no href) survive an edit round-trip.
+        item.href || item.mention?.url || '',
         item.overtext || '',
         item.icon || '',
         item.obfuscated ? 'obfuscated' : '',
@@ -2557,6 +2560,7 @@ function marketingListItemsToText(items: MarketingListItem[]): string {
               item.mention.variant || 'inline'
             }`
           : '',
+        item.meta || '',
       ].join(' | ')
     )
     .join('\n')
@@ -2594,14 +2598,23 @@ function textToMarketingListItems(value: string): MarketingListItem[] {
       .map(line => line.trim())
       .filter(Boolean)
       .map(line => {
-        const [title, description, href, overtext, icon, obfuscated, mention] =
-          line.split('|').map(part => part.trim())
+        const [
+          title,
+          description,
+          href,
+          overtext,
+          icon,
+          obfuscated,
+          mention,
+          meta,
+        ] = line.split('|').map(part => part.trim())
         return {
           title,
           description,
           href,
           overtext,
           icon,
+          meta,
           obfuscated:
             obfuscated === 'true' ||
             obfuscated === 'yes' ||
@@ -4672,7 +4685,7 @@ function MarketingListDialogBody({
           />
           <span className="mt-1 block text-xs text-gray-500">
             Format: title | description | href | overtext | icon | obfuscated |
-            @type:public_id:variant
+            @type:public_id:variant | meta
           </span>
         </label>
 
