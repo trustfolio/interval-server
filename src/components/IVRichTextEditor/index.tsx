@@ -2638,7 +2638,8 @@ function findMarketingListNodePosition(
       node.attrs.layout === 'cards' ||
       node.attrs.layout === 'rows' ||
       node.attrs.layout === 'compact' ||
-      node.attrs.layout === 'table'
+      node.attrs.layout === 'table' ||
+      node.attrs.layout === 'editorial'
         ? node.attrs.layout
         : 'cards',
     items: normalizeMarketingListItems(node.attrs.items),
@@ -4632,6 +4633,7 @@ function MarketingListDialogBody({
               <option value="rows">Rows</option>
               <option value="compact">Compact</option>
               <option value="table">Table</option>
+              <option value="editorial">Liste éditoriale</option>
             </select>
           </label>
         </div>

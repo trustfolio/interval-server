@@ -1,6 +1,11 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 
-export type MarketingListLayout = 'cards' | 'rows' | 'compact' | 'table'
+export type MarketingListLayout =
+  | 'cards'
+  | 'rows'
+  | 'compact'
+  | 'table'
+  | 'editorial'
 export type MarketingListMentionVariant = 'inline' | 'pill' | 'mega-pill'
 
 export interface MarketingListItemMention {
@@ -48,7 +53,8 @@ const isLayout = (value: unknown): value is MarketingListLayout =>
   value === 'cards' ||
   value === 'rows' ||
   value === 'compact' ||
-  value === 'table'
+  value === 'table' ||
+  value === 'editorial'
 
 const isMentionVariant = (
   value: unknown
