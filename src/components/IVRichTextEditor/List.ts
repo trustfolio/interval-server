@@ -5,7 +5,7 @@ export type MarketingListLayout =
   | 'rows'
   | 'compact'
   | 'table'
-  | 'ranking'
+  | 'editorial'
 export type MarketingListMentionVariant = 'inline' | 'pill' | 'mega-pill'
 
 export interface MarketingListItemMention {
@@ -54,7 +54,7 @@ const isLayout = (value: unknown): value is MarketingListLayout =>
   value === 'rows' ||
   value === 'compact' ||
   value === 'table' ||
-  value === 'ranking'
+  value === 'editorial'
 
 const isMentionVariant = (
   value: unknown
