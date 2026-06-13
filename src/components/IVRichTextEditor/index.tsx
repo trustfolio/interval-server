@@ -2542,86 +2542,363 @@ function BeforeAfterClickHandler({
   )
 }
 
-function marketingListItemsToText(items: MarketingListItem[]): string {
-  return normalizeMarketingListItems(items)
-    .map(item =>
-      [
-        item.title,
-        item.description || '',
-        // The href column carries the mention url too: parsing feeds it back
-        // through parseMarketingListMentionToken so generated docs (url on the
-        // mention, no href) survive an edit round-trip.
-        item.href || item.mention?.url || '',
-        item.overtext || '',
-        item.icon || '',
-        item.obfuscated ? 'obfuscated' : '',
-        item.mention
-          ? `@${item.mention.type}:${item.mention.id}:${
-              item.mention.variant || 'inline'
-            }`
-          : '',
-        item.meta || '',
-      ].join(' | ')
-    )
-    .join('\n')
+// Member search for the marketing-list item form — same Hasura REST endpoint
+// the inline mention autocomplete uses (`search_members`), so a list item is
+// selected exactly like a `@mention` in the editor.
+const MENTION_SEARCH_HASURA_URL =
+  import.meta.env.VITE_HASURA_API_URL ||
+  'https://local.hasura.local.nhost.run:444'
+const MENTION_SEARCH_MARKETPLACE_URL =
+  import.meta.env.VITE_MARKETPLACE_URL || 'https://trustfolio.dev'
+
+type MemberMentionResult = {
+  id: string
+  label: string
+  slug: string
+  url: string
 }
 
-function parseMarketingListMentionToken(
-  value: string,
-  label: string,
-  url: string
-): MarketingListItem['mention'] | undefined {
-  const token = value.trim()
-  if (!token.startsWith('@')) return undefined
-
-  const [type, id, variant] = token
-    .slice(1)
-    .split(':')
-    .map(part => part.trim())
-  if (!type || !id) return undefined
-
-  return {
-    id,
-    type,
-    label: label.trim(),
-    ...(url.trim() ? { url: url.trim() } : {}),
-    ...(variant === 'pill' || variant === 'mega-pill' || variant === 'inline'
-      ? { variant }
-      : {}),
+async function searchMemberMentions(
+  query: string
+): Promise<MemberMentionResult[]> {
+  if (!query.trim()) return []
+  try {
+    const response = await fetch(
+      `${MENTION_SEARCH_HASURA_URL}/api/rest/mentions/search?search=${encodeURIComponent(
+        query
+      )}`
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.search_members || []).map(
+      (item: { name: string; public_id: string; slug: string }) => ({
+        id: item.public_id,
+        label: item.name,
+        slug: item.slug,
+        url: `${MENTION_SEARCH_MARKETPLACE_URL}/profil/${item.slug}`,
+      })
+    )
+  } catch {
+    return []
   }
 }
 
-function textToMarketingListItems(value: string): MarketingListItem[] {
-  return normalizeMarketingListItems(
-    value
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(line => {
-        const [
-          title,
-          description,
-          href,
-          overtext,
-          icon,
-          obfuscated,
-          mention,
-          meta,
-        ] = line.split('|').map(part => part.trim())
-        return {
-          title,
-          description,
-          href,
-          overtext,
-          icon,
-          meta,
-          obfuscated:
-            obfuscated === 'true' ||
-            obfuscated === 'yes' ||
-            obfuscated === 'obfuscated',
-          mention: parseMarketingListMentionToken(mention || '', title, href),
-        }
+function MemberMentionSearchInput({
+  value,
+  disabled,
+  onSelect,
+}: {
+  value: MarketingListItem['mention'] | undefined
+  disabled?: boolean
+  onSelect: (member: MemberMentionResult | null) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<MemberMentionResult[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+    let active = true
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      const found = await searchMemberMentions(query)
+      if (!active) return
+      setResults(found)
+      setLoading(false)
+      setOpen(true)
+    }, 250)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [query])
+
+  if (value?.id) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+        <span className="truncate text-sm font-medium text-emerald-900">
+          @ {value.label || value.id}
+        </span>
+        <button
+          type="button"
+          disabled={disabled}
+          className="text-xs text-emerald-700 underline disabled:opacity-50"
+          onClick={() => onSelect(null)}
+        >
+          Changer
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        disabled={disabled}
+        placeholder="Rechercher un membre…"
+        onChange={event => setQuery(event.target.value)}
+        onFocus={() => results.length > 0 && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+      />
+      {open && (loading || results.length > 0) && (
+        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {loading && (
+            <li className="px-3 py-2 text-xs text-gray-400">Recherche…</li>
+          )}
+          {results.map(result => (
+            <li key={result.id}>
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+                onMouseDown={event => {
+                  event.preventDefault()
+                  onSelect(result)
+                  setQuery('')
+                  setOpen(false)
+                }}
+              >
+                {result.label}
+                <span className="block text-xs text-gray-400">
+                  {result.slug}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function MarketingListItemRow({
+  item,
+  index,
+  total,
+  disabled,
+  onChange,
+  onRemove,
+  onMove,
+}: {
+  item: MarketingListItem
+  index: number
+  total: number
+  disabled?: boolean
+  onChange: (next: MarketingListItem) => void
+  onRemove: () => void
+  onMove: (direction: -1 | 1) => void
+}) {
+  const isMember = item.mention?.type === 'member'
+  const update = (patch: Partial<MarketingListItem>) =>
+    onChange({ ...item, ...patch })
+
+  const setKind = (kind: 'member' | 'custom') => {
+    if (kind === 'member') {
+      if (item.mention?.type === 'member') return
+      update({
+        mention: { id: '', type: 'member', label: '', variant: 'inline' },
       })
+    } else {
+      const { mention, ...rest } = item
+      void mention
+      onChange({ ...rest })
+    }
+  }
+
+  const tabClass = (active: boolean) =>
+    `px-3 py-1 text-xs ${
+      active ? 'bg-gray-900 text-white' : 'bg-white text-gray-600'
+    }`
+
+  return (
+    <div className="space-y-2 rounded-md border border-gray-200 p-3">
+      <div className="flex items-center justify-between">
+        <div className="inline-flex overflow-hidden rounded-md border border-gray-200">
+          <button
+            type="button"
+            disabled={disabled}
+            className={tabClass(isMember)}
+            onClick={() => setKind('member')}
+          >
+            Membre
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            className={tabClass(!isMember)}
+            onClick={() => setKind('custom')}
+          >
+            Custom
+          </button>
+        </div>
+        <div className="flex items-center gap-1 text-gray-500">
+          <button
+            type="button"
+            disabled={disabled || index === 0}
+            className="px-1 text-sm disabled:opacity-30"
+            onClick={() => onMove(-1)}
+            aria-label="Monter"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            disabled={disabled || index === total - 1}
+            className="px-1 text-sm disabled:opacity-30"
+            onClick={() => onMove(1)}
+            aria-label="Descendre"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            className="px-1 text-sm text-red-600 disabled:opacity-30"
+            onClick={onRemove}
+            aria-label="Retirer"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {isMember ? (
+        <MemberMentionSearchInput
+          value={item.mention}
+          disabled={disabled}
+          onSelect={member => {
+            if (!member) {
+              update({
+                mention: {
+                  id: '',
+                  type: 'member',
+                  label: '',
+                  variant: 'inline',
+                },
+              })
+              return
+            }
+            update({
+              title: item.title?.trim() || member.label,
+              mention: {
+                id: member.id,
+                type: 'member',
+                label: member.label,
+                url: member.url,
+                variant: 'inline',
+              },
+            })
+          }}
+        />
+      ) : (
+        <input
+          type="text"
+          value={item.title || ''}
+          disabled={disabled}
+          placeholder="Titre"
+          onChange={event => update({ title: event.target.value })}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      )}
+
+      {!isMember && (
+        <input
+          type="text"
+          value={item.href || ''}
+          disabled={disabled}
+          placeholder="Lien (https://…)"
+          onChange={event => update({ href: event.target.value })}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      )}
+
+      <textarea
+        value={item.description || ''}
+        disabled={disabled}
+        rows={2}
+        placeholder="Description"
+        onChange={event => update({ description: event.target.value })}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+      />
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input
+          type="text"
+          value={item.overtext || ''}
+          disabled={disabled}
+          placeholder="Sur-titre (optionnel)"
+          onChange={event => update({ overtext: event.target.value })}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+        <input
+          type="text"
+          value={item.meta || ''}
+          disabled={disabled}
+          placeholder="Méta (ex. 31 avis · Lyon)"
+          onChange={event => update({ meta: event.target.value })}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  )
+}
+
+function MarketingListItemsEditor({
+  items,
+  disabled,
+  onChange,
+}: {
+  items: MarketingListItem[]
+  disabled?: boolean
+  onChange: (next: MarketingListItem[]) => void
+}) {
+  const updateAt = (index: number, next: MarketingListItem) =>
+    onChange(items.map((item, idx) => (idx === index ? next : item)))
+  const removeAt = (index: number) =>
+    onChange(items.filter((_, idx) => idx !== index))
+  const moveAt = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= items.length) return
+    const next = items.slice()
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-3">
+      <span className="text-sm font-medium text-gray-700">Items</span>
+      {items.length === 0 && (
+        <p className="text-xs text-gray-400">
+          Aucun item. Ajoutez-en un ci-dessous.
+        </p>
+      )}
+      {items.map((item, index) => (
+        <MarketingListItemRow
+          key={index}
+          item={item}
+          index={index}
+          total={items.length}
+          disabled={disabled}
+          onChange={next => updateAt(index, next)}
+          onRemove={() => removeAt(index)}
+          onMove={direction => moveAt(index, direction)}
+        />
+      ))}
+      <IVButton
+        label="+ Ajouter un item"
+        theme="secondary"
+        disabled={disabled}
+        onClick={() => onChange([...items, { title: '' }])}
+      />
+    </div>
   )
 }
 
@@ -2709,9 +2986,7 @@ function MarketingListClickHandler({
   const [description, setDescription] = useState('')
   const [ordered, setOrdered] = useState(false)
   const [layout, setLayout] = useState<MarketingListLayout>('cards')
-  const [itemsText, setItemsText] = useState(
-    'Nouvel élément | Description | https://example.com'
-  )
+  const [items, setItems] = useState<MarketingListItem[]>([])
 
   useEffect(() => {
     if (!editor) return
@@ -2735,7 +3010,7 @@ function MarketingListClickHandler({
       setDescription(found.attrs.description || '')
       setOrdered(found.attrs.ordered === true)
       setLayout(found.attrs.layout || 'cards')
-      setItemsText(marketingListItemsToText(found.attrs.items || []))
+      setItems(normalizeMarketingListItems(found.attrs.items || []))
       editor.chain().focus().setNodeSelection(found.pos).run()
       dialog.show()
     }
@@ -2760,12 +3035,12 @@ function MarketingListClickHandler({
         description: description.trim(),
         ordered,
         layout,
-        items: textToMarketingListItems(itemsText),
+        items: normalizeMarketingListItems(items),
       })
       .run()
 
     dialog.hide()
-  }, [description, dialog, editor, itemsText, layout, nodePos, ordered, title])
+  }, [description, dialog, editor, items, layout, nodePos, ordered, title])
 
   const deleteBlock = useCallback(() => {
     if (!editor || nodePos === null || disabled) return
@@ -2806,8 +3081,8 @@ function MarketingListClickHandler({
       setOrdered={setOrdered}
       layout={layout}
       setLayout={setLayout}
-      itemsText={itemsText}
-      setItemsText={setItemsText}
+      items={items}
+      setItems={setItems}
       primaryLabel="Save block"
       onPrimary={saveBlock}
       dangerLabel="Remove block"
@@ -4588,8 +4863,8 @@ function MarketingListDialogBody({
   setOrdered,
   layout,
   setLayout,
-  itemsText,
-  setItemsText,
+  items,
+  setItems,
   primaryLabel,
   onPrimary,
   dangerLabel,
@@ -4606,8 +4881,8 @@ function MarketingListDialogBody({
   setOrdered: (value: boolean) => void
   layout: MarketingListLayout
   setLayout: (value: MarketingListLayout) => void
-  itemsText: string
-  setItemsText: (value: string) => void
+  items: MarketingListItem[]
+  setItems: (value: MarketingListItem[]) => void
   primaryLabel: string
   onPrimary: () => void
   dangerLabel?: string
@@ -4672,22 +4947,11 @@ function MarketingListDialogBody({
           Render as ordered list
         </label>
 
-        <label className="block">
-          <span className="text-sm font-medium text-gray-700">
-            Items, one per line
-          </span>
-          <textarea
-            value={itemsText}
-            disabled={disabled}
-            onChange={event => setItemsText(event.target.value)}
-            rows={8}
-            className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono"
-          />
-          <span className="mt-1 block text-xs text-gray-500">
-            Format: title | description | href | overtext | icon | obfuscated |
-            @type:public_id:variant | meta
-          </span>
-        </label>
+        <MarketingListItemsEditor
+          items={items}
+          disabled={disabled}
+          onChange={setItems}
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           {onDanger && dangerLabel ? (
@@ -4722,9 +4986,7 @@ function MarketingListInsertModal({
   const [description, setDescription] = useState('')
   const [ordered, setOrdered] = useState(false)
   const [layout, setLayout] = useState<MarketingListLayout>('cards')
-  const [itemsText, setItemsText] = useState(
-    'Premier élément | Description courte | https://example.com'
-  )
+  const [items, setItems] = useState<MarketingListItem[]>([{ title: '' }])
 
   useEffect(() => {
     if (!dialog.visible) {
@@ -4732,7 +4994,7 @@ function MarketingListInsertModal({
       setDescription('')
       setOrdered(false)
       setLayout('cards')
-      setItemsText('Premier élément | Description courte | https://example.com')
+      setItems([{ title: '' }])
     }
   }, [dialog.visible])
 
@@ -4742,7 +5004,7 @@ function MarketingListInsertModal({
       description: description.trim(),
       ordered,
       layout,
-      items: textToMarketingListItems(itemsText),
+      items: normalizeMarketingListItems(items),
     })
     dialog.hide()
   }
@@ -4759,8 +5021,8 @@ function MarketingListInsertModal({
       setOrdered={setOrdered}
       layout={layout}
       setLayout={setLayout}
-      itemsText={itemsText}
-      setItemsText={setItemsText}
+      items={items}
+      setItems={setItems}
       primaryLabel="Insert list"
       onPrimary={submit}
     />
