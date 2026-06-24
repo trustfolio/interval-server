@@ -192,7 +192,8 @@ const itemTitleNode = (
         ...mentionAttrs,
         ...attrs,
       },
-      item.mention?.displayLabel || item.title,
+      // Member items show the member name, never the internal free-text title.
+      item.mention?.displayLabel || item.mention?.label || item.title,
     ]
   }
 
