@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/react'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
@@ -46,6 +47,78 @@ const clampCommentRange = (docSize: number, comment: ReviewComment) => {
   return {
     from: safeFrom,
     to: safeTo,
+  }
+}
+
+type DocTextIndex = {
+  text: string
+  positions: number[]
+}
+
+/**
+ * Flatten the doc's text nodes into one string plus a parallel array mapping
+ * each character to its ProseMirror position. Lets us re-locate a comment by
+ * its quoted text instead of trusting stored offsets — those drift the moment
+ * the editor changes the document, and don't even line up to begin with (the
+ * preview captures offsets against a stripped doc, the editor loads the raw one).
+ *
+ * ponytail: rebuilt on every decorations() call — O(doc) per render. Fine for
+ * review docs (a few thousand chars, a handful of comments); cache by doc
+ * identity if it ever shows up in a profile.
+ */
+const buildDocTextIndex = (doc: ProseMirrorNode): DocTextIndex => {
+  const chunks: string[] = []
+  const positions: number[] = []
+
+  doc.descendants((node, pos) => {
+    if (node.isText && node.text) {
+      const text = node.text
+      chunks.push(text)
+      for (let i = 0; i < text.length; i++) {
+        positions.push(pos + i)
+      }
+    }
+    return true
+  })
+
+  return { text: chunks.join(''), positions }
+}
+
+/**
+ * Re-locate a comment by its quoted text in the current doc. When the quote
+ * occurs more than once, pick the occurrence closest to the stored offset.
+ * Returns null when there's no quote or it can no longer be found (e.g. the
+ * editor rewrote the highlighted text) — caller falls back to stored offsets.
+ */
+export const locateCommentRange = (
+  docIndex: DocTextIndex,
+  comment: ReviewComment
+) => {
+  const needle = (comment.anchor?.text ?? comment.selectedText ?? '').trim()
+  if (!needle) return null
+
+  const { text, positions } = docIndex
+  const target = comment.anchor?.from ?? 0
+
+  let bestStart = -1
+  let bestDistance = Infinity
+  for (
+    let idx = text.indexOf(needle);
+    idx !== -1;
+    idx = text.indexOf(needle, idx + 1)
+  ) {
+    const distance = Math.abs(positions[idx] - target)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestStart = idx
+    }
+  }
+
+  if (bestStart === -1) return null
+
+  return {
+    from: positions[bestStart],
+    to: positions[bestStart + needle.length - 1] + 1,
   }
 }
 
@@ -104,12 +177,15 @@ export const createReviewCommentsExtension = ({
               const comments = commentsRef.current
               const selectedCommentId = selectedCommentIdRef.current
               const docSize = state.doc.content.size
+              const docIndex = buildDocTextIndex(state.doc)
 
               return DecorationSet.create(
                 state.doc,
                 comments
                   .map(comment => {
-                    const range = clampCommentRange(docSize, comment)
+                    const range =
+                      locateCommentRange(docIndex, comment) ??
+                      clampCommentRange(docSize, comment)
                     if (!range) return null
 
                     const isSelected = selectedCommentId === comment.id
@@ -178,8 +254,10 @@ export const sortReviewComments = (comments: ReviewComment[]) =>
 export const focusReviewComment = (editor: Editor | null, comment: ReviewComment) => {
   if (!editor || !comment.anchor) return
 
-  const docSize = editor.state.doc.content.size
-  const range = clampCommentRange(docSize, comment)
+  const docIndex = buildDocTextIndex(editor.state.doc)
+  const range =
+    locateCommentRange(docIndex, comment) ??
+    clampCommentRange(editor.state.doc.content.size, comment)
   if (!range) return
 
   editor
