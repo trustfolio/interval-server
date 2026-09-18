@@ -33,12 +33,21 @@ const schema = z.object({
   SLACK_CLIENT_SECRET: z.string().optional(),
 
   // file uploads
+  S3_ENABLED: z
+    .string()
+    .optional()
+    .transform(arg => !!arg && arg !== 'false' && arg !== '0')
+    .describe(
+      'If set, enables S3 without requiring other configuration variables.'
+    ),
   S3_KEY_ID: z.string().optional(),
   S3_KEY_SECRET: z.string().optional(),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
 })
+
+export type Env = z.infer<typeof schema>
 
 const possiblyValid = schema.safeParse(process.env)
 if (!possiblyValid.success) {
@@ -57,6 +66,6 @@ declare global {
   // eslint-disable-next-line
   namespace NodeJS {
     // eslint-disable-next-line
-    interface ProcessEnv extends z.infer<typeof schema> {}
+    interface ProcessEnv extends z.input<typeof schema> {}
   }
 }
