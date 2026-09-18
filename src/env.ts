@@ -38,7 +38,7 @@ const schema = z.object({
     .optional()
     .transform(arg => !!arg && arg !== 'false' && arg !== '0')
     .describe(
-      'If set, enables S3 without requiring other configuration variables.'
+      'If set, enables S3 using instance credentials. S3_BUCKET is still required.'
     ),
   S3_KEY_ID: z.string().optional(),
   S3_KEY_SECRET: z.string().optional(),

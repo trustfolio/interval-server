@@ -12,12 +12,15 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import env, { Env } from '~/env'
 
 function isS3Available(env: Env) {
+  if (!env.S3_BUCKET) {
+    return false
+  }
+
   return (
     env.S3_ENABLED ||
     (typeof env.S3_KEY_ID === 'string' &&
       typeof env.S3_KEY_SECRET === 'string' &&
-      typeof env.S3_REGION === 'string' &&
-      typeof env.S3_BUCKET === 'string')
+      typeof env.S3_REGION === 'string')
   )
 }
 

@@ -2458,7 +2458,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
           await ws.ping()
           lastSuccessfulPing = new Date()
 
-          if (connectedHosts.has(ws.id)) {
+          if (connectedHosts.get(ws.id)?.ws === ws) {
             try {
               // doing these statuses separately to avoid changing status
               await prisma.hostInstance.updateMany({
@@ -2501,7 +2501,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             handleClose()
           }
 
-          if (connectedHosts.has(ws.id)) {
+          if (connectedHosts.get(ws.id)?.ws === ws) {
             try {
               const hostInstance = await prisma.hostInstance.findUnique({
                 where: { id: ws.id },
@@ -2586,8 +2586,10 @@ export function setupWebSocketServer(wss: WebSocketServer) {
       if (closed) return
       closed = true
 
-      const client = connectedClients.get(ws.id)
-      const host = connectedHosts.get(ws.id)
+      const mappedClient = connectedClients.get(ws.id)
+      const mappedHost = connectedHosts.get(ws.id)
+      const client = mappedClient?.ws === ws ? mappedClient : undefined
+      const host = mappedHost?.ws === ws ? mappedHost : undefined
 
       const logProps: Record<string, string | number | undefined | null> = {
         instanceId: ws.id,
@@ -2662,8 +2664,10 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             }
           }
 
-          connectedClients.delete(ws.id)
-          userClientIds.get(client.user.id)?.delete(ws.id)
+          if (connectedClients.get(ws.id)?.ws === ws) {
+            connectedClients.delete(ws.id)
+            userClientIds.get(client.user.id)?.delete(ws.id)
+          }
 
           const transactions = await prisma.transaction.findMany({
             where: {
@@ -2710,8 +2714,18 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             data: { currentClientId: null },
           })
         } else if (host) {
-          connectedHosts.delete(ws.id)
-          apiKeyHostIds.get(host.apiKeyId)?.delete(ws.id)
+          // Only drop the map entry if this closing socket still owns it.
+          // A reconnect with the same ws.id may already have replaced it;
+          // deleting by id would evict that connection and make the
+          // HostInstance skip-check below always fail.
+          if (connectedHosts.get(ws.id)?.ws !== ws) {
+            logger.info(
+              'Skipping host cleanup; reconnect already re-registered',
+              { instanceId: ws.id }
+            )
+          } else {
+            connectedHosts.delete(ws.id)
+            apiKeyHostIds.get(host.apiKeyId)?.delete(ws.id)
 
           let inProgressTransactions: Transaction[]
           if (host.usageEnvironment === 'DEVELOPMENT') {
@@ -2830,6 +2844,12 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               }
             }
           }
+          }
+        } else if (mappedHost) {
+          logger.info(
+            'Skipping host cleanup; reconnect already re-registered',
+            { instanceId: ws.id }
+          )
         }
       } catch (error) {
         logger.error('Failed cleaning up on websocket connection close', {
