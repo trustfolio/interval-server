@@ -81,6 +81,7 @@ import {
   ConnectedHost,
   connectedHosts,
   apiKeyHostIds,
+  pendingHostRegistrations,
   connectedClients,
   userClientIds,
   pageSockets,
@@ -98,6 +99,19 @@ const RATE_LIMIT_ALERT_THRESHOLD = 256
 const RATE_LIMIT_CLIENT_MAX_MESSAGES_PER_SECOND = 50
 const RATE_LIMIT_CLIENT_ALERT_THRESHOLD = 25
 const RECENTLY_OPENED_LIVE_PAGES_INTERVAL_MS = 500
+
+function isHostInstanceOwnedByAnotherSocket(
+  instanceId: string,
+  closingWs: ISocket
+) {
+  const connected = connectedHosts.get(instanceId)
+  if (connected && connected.ws !== closingWs) {
+    return true
+  }
+
+  const pending = pendingHostRegistrations.get(instanceId)
+  return !!pending && pending !== closingWs
+}
 
 /* A copy of the state enum in ws to avoid an unnecessary import */
 enum WebSocketState {
@@ -607,6 +621,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             try {
               pendingInitializationTimestamps.delete(timestamp)
               initializingHost = true
+              pendingHostRegistrations.set(ws.id, ws)
 
               const hostInstance = await prisma.hostInstance.upsert({
                 where: { id: ws.id },
@@ -843,6 +858,10 @@ export function setupWebSocketServer(wss: WebSocketServer) {
                 error,
               })
               return initializationFailure('Internal Server Error')
+            } finally {
+              if (pendingHostRegistrations.get(ws.id) === ws) {
+                pendingHostRegistrations.delete(ws.id)
+              }
             }
           },
           BEGIN_HOST_SHUTDOWN: async () => {
@@ -2755,9 +2774,10 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               },
             })
 
-            // A present entry here means a reconnect with the same ws.id has
-            // already re-registered; the DB row now belongs to that connection.
-            if (connectedHosts.has(ws.id)) {
+            // Skip if a reconnect already upserted or re-registered this id.
+            // connectedHosts is set after awaits (e.g. httpHostRequest lookup),
+            // so also honor pendingHostRegistrations from before the upsert.
+            if (isHostInstanceOwnedByAnotherSocket(ws.id, ws)) {
               logger.info(
                 'Skipping HostInstance delete; reconnect already re-registered',
                 { instanceId: ws.id }
@@ -2785,9 +2805,10 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               data: { status: 'HOST_CONNECTION_DROPPED' },
             })
 
-            // A present entry here means a reconnect with the same ws.id has
-            // already re-registered; the DB row now belongs to that connection.
-            if (connectedHosts.has(ws.id)) {
+            // Skip if a reconnect already upserted or re-registered this id.
+            // connectedHosts is set after awaits (e.g. httpHostRequest lookup),
+            // so also honor pendingHostRegistrations from before the upsert.
+            if (isHostInstanceOwnedByAnotherSocket(ws.id, ws)) {
               logger.info(
                 'Skipping HostInstance delete; reconnect already re-registered',
                 { instanceId: ws.id }

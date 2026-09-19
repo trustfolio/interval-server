@@ -46,6 +46,9 @@ export const blockedWsIds = new Set<string>()
 
 export const connectedHosts = new Map<string, ConnectedHost>()
 export const apiKeyHostIds = new Map<string, Set<string>>()
+// Socket inside INITIALIZE_HOST for this instance id. Set before the
+// HostInstance upsert and cleared after connectedHosts.set (or on failure).
+export const pendingHostRegistrations = new Map<string, ISocket>()
 
 export const connectedClients = new Map<string, ConnectedClient>()
 export const userClientIds = new Map<string, Set<string>>()
