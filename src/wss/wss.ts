@@ -139,6 +139,17 @@ function removePendingHostRegistration(instanceId: string, socket: ISocket) {
   }
 }
 
+function removeStaleApiKeyHostId(
+  instanceId: string,
+  oldApiKeyId: string | undefined,
+  replacement: ConnectedHost | undefined
+) {
+  if (!oldApiKeyId || replacement?.apiKeyId === oldApiKeyId) {
+    return
+  }
+  apiKeyHostIds.get(oldApiKeyId)?.delete(instanceId)
+}
+
 function isHostInstanceOwnedByAnotherSocket(
   instanceId: string,
   closingWs: ISocket
@@ -886,6 +897,14 @@ export function setupWebSocketServer(wss: WebSocketServer) {
                 pageKeys: new Set(),
                 sdkName,
                 sdkVersion,
+              }
+              const previousHost = connectedHosts.get(ws.id)
+              if (previousHost && previousHost.ws !== ws) {
+                removeStaleApiKeyHostId(
+                  ws.id,
+                  previousHost.apiKeyId,
+                  host
+                )
               }
               connectedHosts.set(ws.id, host)
               {
@@ -2823,6 +2842,11 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               'Skipping host cleanup; reconnect already re-registered',
               { instanceId: ws.id }
             )
+            removeStaleApiKeyHostId(
+              ws.id,
+              host.apiKeyId,
+              connectedHosts.get(ws.id)
+            )
           } else {
             connectedHosts.delete(ws.id)
             apiKeyHostIds.get(host.apiKeyId)?.delete(ws.id)
@@ -2945,6 +2969,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             'Skipping host cleanup; reconnect already re-registered',
             { instanceId: ws.id }
           )
+          removeStaleApiKeyHostId(ws.id, auth?.apiKey?.id, mappedHost)
         }
       } catch (error) {
         logger.error('Failed cleaning up on websocket connection close', {
