@@ -100,6 +100,24 @@ const RATE_LIMIT_CLIENT_MAX_MESSAGES_PER_SECOND = 50
 const RATE_LIMIT_CLIENT_ALERT_THRESHOLD = 25
 const RECENTLY_OPENED_LIVE_PAGES_INTERVAL_MS = 500
 
+function addPendingHostRegistration(instanceId: string, socket: ISocket) {
+  let sockets = pendingHostRegistrations.get(instanceId)
+  if (!sockets) {
+    sockets = new Set()
+    pendingHostRegistrations.set(instanceId, sockets)
+  }
+  sockets.add(socket)
+}
+
+function removePendingHostRegistration(instanceId: string, socket: ISocket) {
+  const sockets = pendingHostRegistrations.get(instanceId)
+  if (!sockets) return
+  sockets.delete(socket)
+  if (sockets.size === 0) {
+    pendingHostRegistrations.delete(instanceId)
+  }
+}
+
 function isHostInstanceOwnedByAnotherSocket(
   instanceId: string,
   closingWs: ISocket
@@ -110,7 +128,13 @@ function isHostInstanceOwnedByAnotherSocket(
   }
 
   const pending = pendingHostRegistrations.get(instanceId)
-  return !!pending && pending !== closingWs
+  if (!pending) return false
+  for (const socket of pending) {
+    if (socket !== closingWs) {
+      return true
+    }
+  }
+  return false
 }
 
 /* A copy of the state enum in ws to avoid an unnecessary import */
@@ -621,7 +645,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             try {
               pendingInitializationTimestamps.delete(timestamp)
               initializingHost = true
-              pendingHostRegistrations.set(ws.id, ws)
+              addPendingHostRegistration(ws.id, ws)
 
               const hostInstance = await prisma.hostInstance.upsert({
                 where: { id: ws.id },
@@ -859,9 +883,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               })
               return initializationFailure('Internal Server Error')
             } finally {
-              if (pendingHostRegistrations.get(ws.id) === ws) {
-                pendingHostRegistrations.delete(ws.id)
-              }
+              removePendingHostRegistration(ws.id, ws)
             }
           },
           BEGIN_HOST_SHUTDOWN: async () => {
