@@ -137,6 +137,29 @@ function isHostInstanceOwnedByAnotherSocket(
   return false
 }
 
+async function deleteOrphanedHostInstance(instanceId: string) {
+  if (
+    connectedHosts.has(instanceId) ||
+    pendingHostRegistrations.has(instanceId)
+  ) {
+    return
+  }
+
+  try {
+    await prisma.hostInstance.delete({
+      where: { id: instanceId },
+    })
+    logger.info('Deleted HostInstance after failed host initialization', {
+      instanceId,
+    })
+  } catch (error) {
+    logger.info('No HostInstance to delete after failed host initialization', {
+      instanceId,
+      error,
+    })
+  }
+}
+
 /* A copy of the state enum in ws to avoid an unnecessary import */
 enum WebSocketState {
   CONNECTING = 0,
@@ -883,7 +906,12 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               })
               return initializationFailure('Internal Server Error')
             } finally {
+              const registered = connectedHosts.get(ws.id)?.ws === ws
+              const othersOwn = isHostInstanceOwnedByAnotherSocket(ws.id, ws)
               removePendingHostRegistration(ws.id, ws)
+              if (!registered && !othersOwn) {
+                void deleteOrphanedHostInstance(ws.id)
+              }
             }
           },
           BEGIN_HOST_SHUTDOWN: async () => {
