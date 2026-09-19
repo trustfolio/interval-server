@@ -100,6 +100,27 @@ const RATE_LIMIT_CLIENT_MAX_MESSAGES_PER_SECOND = 50
 const RATE_LIMIT_CLIENT_ALERT_THRESHOLD = 25
 const RECENTLY_OPENED_LIVE_PAGES_INTERVAL_MS = 500
 
+const hostInstanceWork = new Map<string, Promise<unknown>>()
+
+function enqueueHostInstanceWork<T>(
+  instanceId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previous = hostInstanceWork.get(instanceId) ?? Promise.resolve()
+  const next = previous.catch(() => undefined).then(fn)
+  const settled = next.then(
+    () => undefined,
+    () => undefined
+  )
+  hostInstanceWork.set(instanceId, settled)
+  void settled.then(() => {
+    if (hostInstanceWork.get(instanceId) === settled) {
+      hostInstanceWork.delete(instanceId)
+    }
+  })
+  return next
+}
+
 function addPendingHostRegistration(instanceId: string, socket: ISocket) {
   let sockets = pendingHostRegistrations.get(instanceId)
   if (!sockets) {
@@ -138,26 +159,31 @@ function isHostInstanceOwnedByAnotherSocket(
 }
 
 async function deleteOrphanedHostInstance(instanceId: string) {
-  if (
-    connectedHosts.has(instanceId) ||
-    pendingHostRegistrations.has(instanceId)
-  ) {
-    return
-  }
+  await enqueueHostInstanceWork(instanceId, async () => {
+    if (
+      connectedHosts.has(instanceId) ||
+      pendingHostRegistrations.has(instanceId)
+    ) {
+      return
+    }
 
-  try {
-    await prisma.hostInstance.delete({
-      where: { id: instanceId },
-    })
-    logger.info('Deleted HostInstance after failed host initialization', {
-      instanceId,
-    })
-  } catch (error) {
-    logger.info('No HostInstance to delete after failed host initialization', {
-      instanceId,
-      error,
-    })
-  }
+    try {
+      await prisma.hostInstance.delete({
+        where: { id: instanceId },
+      })
+      logger.info('Deleted HostInstance after failed host initialization', {
+        instanceId,
+      })
+    } catch (error) {
+      logger.info(
+        'No HostInstance to delete after failed host initialization',
+        {
+          instanceId,
+          error,
+        }
+      )
+    }
+  })
 }
 
 /* A copy of the state enum in ws to avoid an unnecessary import */
@@ -668,41 +694,46 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             try {
               pendingInitializationTimestamps.delete(timestamp)
               initializingHost = true
-              addPendingHostRegistration(ws.id, ws)
 
-              const hostInstance = await prisma.hostInstance.upsert({
-                where: { id: ws.id },
-                create: {
-                  id: ws.id,
-                  organizationId: auth.organization.id,
-                  apiKeyId: auth.apiKey.id,
-                  status: HostInstanceStatus.ONLINE,
-                  sdkName,
-                  sdkVersion,
-                  requestId,
-                },
-                update: {
-                  organizationId: auth.organization.id,
-                  apiKeyId: auth.apiKey.id,
-                  status: HostInstanceStatus.ONLINE,
-                  isInitializing: true,
-                  sdkName,
-                  sdkVersion,
-                  requestId,
-                },
-                include: {
-                  actions: {
-                    select: {
-                      id: true,
+              const hostInstance = await enqueueHostInstanceWork(
+                ws.id,
+                async () => {
+                  addPendingHostRegistration(ws.id, ws)
+                  return prisma.hostInstance.upsert({
+                    where: { id: ws.id },
+                    create: {
+                      id: ws.id,
+                      organizationId: auth.organization.id,
+                      apiKeyId: auth.apiKey.id,
+                      status: HostInstanceStatus.ONLINE,
+                      sdkName,
+                      sdkVersion,
+                      requestId,
                     },
-                  },
-                  actionGroups: {
-                    select: {
-                      id: true,
+                    update: {
+                      organizationId: auth.organization.id,
+                      apiKeyId: auth.apiKey.id,
+                      status: HostInstanceStatus.ONLINE,
+                      isInitializing: true,
+                      sdkName,
+                      sdkVersion,
+                      requestId,
                     },
-                  },
-                },
-              })
+                    include: {
+                      actions: {
+                        select: {
+                          id: true,
+                        },
+                      },
+                      actionGroups: {
+                        select: {
+                          id: true,
+                        },
+                      },
+                    },
+                  })
+                }
+              )
 
               const actions: {
                 prefix?: string
@@ -910,7 +941,7 @@ export function setupWebSocketServer(wss: WebSocketServer) {
               const othersOwn = isHostInstanceOwnedByAnotherSocket(ws.id, ws)
               removePendingHostRegistration(ws.id, ws)
               if (!registered && !othersOwn) {
-                void deleteOrphanedHostInstance(ws.id)
+                await deleteOrphanedHostInstance(ws.id)
               }
             }
           },
@@ -2796,125 +2827,118 @@ export function setupWebSocketServer(wss: WebSocketServer) {
             connectedHosts.delete(ws.id)
             apiKeyHostIds.get(host.apiKeyId)?.delete(ws.id)
 
-          let inProgressTransactions: Transaction[]
-          if (host.usageEnvironment === 'DEVELOPMENT') {
-            inProgressTransactions = await prisma.transaction.findMany({
-              where: {
-                hostInstance: { id: ws.id },
-              },
-            })
+            await enqueueHostInstanceWork(ws.id, async () => {
+              if (isHostInstanceOwnedByAnotherSocket(ws.id, ws)) {
+                logger.info(
+                  'Skipping host cleanup; reconnect already re-registered',
+                  { instanceId: ws.id }
+                )
+                return
+              }
 
-            // delete existing development transactions
-            await prisma.transaction.deleteMany({
-              where: {
-                id: { in: inProgressTransactions.map(t => t.id) },
-              },
-            })
+              let inProgressTransactions: Transaction[]
+              if (host.usageEnvironment === 'DEVELOPMENT') {
+                inProgressTransactions = await prisma.transaction.findMany({
+                  where: {
+                    hostInstance: { id: ws.id },
+                  },
+                })
 
-            // delete existing development queued actions
-            await prisma.queuedAction.deleteMany({
-              where: {
-                action: {
-                  hostInstances: {
-                    some: {
-                      id: ws.id,
+                await prisma.transaction.deleteMany({
+                  where: {
+                    id: { in: inProgressTransactions.map(t => t.id) },
+                  },
+                })
+
+                await prisma.queuedAction.deleteMany({
+                  where: {
+                    action: {
+                      hostInstances: {
+                        some: {
+                          id: ws.id,
+                        },
+                      },
                     },
                   },
-                },
-              },
-            })
-
-            // Skip if a reconnect already upserted or re-registered this id.
-            // connectedHosts is set after awaits (e.g. httpHostRequest lookup),
-            // so also honor pendingHostRegistrations from before the upsert.
-            if (isHostInstanceOwnedByAnotherSocket(ws.id, ws)) {
-              logger.info(
-                'Skipping HostInstance delete; reconnect already re-registered',
-                { instanceId: ws.id }
-              )
-            } else {
-              await prisma.hostInstance.delete({
-                where: {
-                  id: ws.id,
-                },
-              })
-            }
-          } else {
-            inProgressTransactions = await prisma.transaction.findMany({
-              where: {
-                hostInstance: { id: ws.id },
-                status: { in: ['PENDING', 'RUNNING', 'AWAITING_INPUT'] },
-              },
-            })
-
-            // mark all transactions as dropped
-            await prisma.transaction.updateMany({
-              where: {
-                id: { in: inProgressTransactions.map(t => t.id) },
-              },
-              data: { status: 'HOST_CONNECTION_DROPPED' },
-            })
-
-            // Skip if a reconnect already upserted or re-registered this id.
-            // connectedHosts is set after awaits (e.g. httpHostRequest lookup),
-            // so also honor pendingHostRegistrations from before the upsert.
-            if (isHostInstanceOwnedByAnotherSocket(ws.id, ws)) {
-              logger.info(
-                'Skipping HostInstance delete; reconnect already re-registered',
-                { instanceId: ws.id }
-              )
-            } else {
-              try {
-                await prisma.hostInstance.delete({
-                  where: { id: ws.id },
                 })
-              } catch (error) {
-                // swallow these in development to allow for cleaning up test data
-                if (process.env.NODE_ENV === 'production') {
-                  throw error
+
+                await prisma.hostInstance.delete({
+                  where: {
+                    id: ws.id,
+                  },
+                })
+              } else {
+                inProgressTransactions = await prisma.transaction.findMany({
+                  where: {
+                    hostInstance: { id: ws.id },
+                    status: { in: ['PENDING', 'RUNNING', 'AWAITING_INPUT'] },
+                  },
+                })
+
+                await prisma.transaction.updateMany({
+                  where: {
+                    id: { in: inProgressTransactions.map(t => t.id) },
+                  },
+                  data: { status: 'HOST_CONNECTION_DROPPED' },
+                })
+
+                try {
+                  await prisma.hostInstance.delete({
+                    where: { id: ws.id },
+                  })
+                } catch (error) {
+                  // swallow these in development to allow for cleaning up test data
+                  if (process.env.NODE_ENV === 'production') {
+                    throw error
+                  }
                 }
               }
-            }
-          }
 
-          for (const t of inProgressTransactions) {
-            freeTransactionCalls(t)
+              for (const t of inProgressTransactions) {
+                freeTransactionCalls(t)
 
-            if (t.currentClientId) {
-              const client = connectedClients.get(t.currentClientId)
-              if (client) {
-                client.rpc
-                  .send('HOST_CLOSED_UNEXPECTEDLY', {
-                    transactionId: t.id,
-                  })
-                  .catch(error => {
-                    logger.warn('Failed sending closed message to client', {
-                      instanceId: ws.id,
-                      error,
-                    })
-                  })
+                if (t.currentClientId) {
+                  const client = connectedClients.get(t.currentClientId)
+                  if (client) {
+                    client.rpc
+                      .send('HOST_CLOSED_UNEXPECTEDLY', {
+                        transactionId: t.id,
+                      })
+                      .catch(error => {
+                        logger.warn(
+                          'Failed sending closed message to client',
+                          {
+                            instanceId: ws.id,
+                            error,
+                          }
+                        )
+                      })
+                  }
+                }
               }
-            }
-          }
 
-          for (const pageKey of host.pageKeys.values()) {
-            const sockets = pageSockets.get(pageKey)
-            if (sockets) {
-              const client = connectedClients.get(sockets.clientId)
-              if (client) {
-                client.rpc
-                  .send('HOST_CLOSED_UNEXPECTEDLY', {
-                    transactionId: pageKey,
-                  })
-                  .catch(error => {
-                    logger.warn('Failed sending closed message to client', {
-                      instanceId: ws.id,
-                      error,
-                    })
-                  })
+              for (const pageKey of host.pageKeys.values()) {
+                const sockets = pageSockets.get(pageKey)
+                if (sockets) {
+                  const client = connectedClients.get(sockets.clientId)
+                  if (client) {
+                    client.rpc
+                      .send('HOST_CLOSED_UNEXPECTEDLY', {
+                        transactionId: pageKey,
+                      })
+                      .catch(error => {
+                        logger.warn(
+                          'Failed sending closed message to client',
+                          {
+                            instanceId: ws.id,
+                            error,
+                          }
+                        )
+                      })
+                  }
+                }
               }
-            }
-          }
+            })
           }
         } else if (mappedHost) {
           logger.info(
